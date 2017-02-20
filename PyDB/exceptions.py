@@ -25,3 +25,8 @@ class PyDBInternalError(PyDBError):
 class PyDBMetadataError(PyDBInternalError):
     def __init__(self, msg):
         super().__init__(msg)
+
+
+class PyDBConsistencyError(PyDBError):
+    def __init__(self, msg):
+        super().__init__("Inconsistent file state. " + msg)

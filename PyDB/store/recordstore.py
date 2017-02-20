@@ -1,9 +1,10 @@
 import os.path
+import os
 import struct
 
 from PyDB.datatypes import GenericType
 from PyDB.utils import custom_import, get_qualified_name
-from PyDB.exceptions import PyDBMetadataError
+from PyDB.exceptions import PyDBMetadataError, PyDBConsistencyError
 
 class TableMetadata(object):
     def __init__(self, class_name, column_names, column_types, column_sizes,
@@ -41,9 +42,10 @@ class FileTableStore(TableStore):
         self.columns = self.get_columns(cls)
         if os.path.isfile(path):
             self.file = open(path, "r+b")
+            self.metadata = self.read_structure(cls)
         else:
             self.file = open(path, "w+b")
-            self.init_structure()
+            self.metadata = self.init_structure(cls)
 
     def get_columns(self, cls):
         cols = []
@@ -53,8 +55,24 @@ class FileTableStore(TableStore):
                 cols.append((x, typ))
         return cols
 
-    def init_structure(self):
-        pass
+    def read_structure(self, cls):
+        md = self.get_metadata_from_class(cls)
+        row_count, col_count, col_sizes = self.decode_metadata(self.read_file_metadata())
+        if col_count != len(md.column_names):
+            raise PyDBConsistencyError("Columns defined in the class, and those in the file"
+                    + "don't match.")
+        if md.column_sizes != list(col_sizes):
+            raise PyDBConsistencyError("Sizes of the columns defined in the class, and those " 
+                    + "in the file don't match.")
+        md.row_count = row_count
+        return md
+
+    def init_structure(self, cls):
+        md = self.get_metadata_from_class(cls)
+        self.file.truncate(0)
+        self.write_file_metadata(self.encode_metadata(md))
+        return md
+
 
     def get_metadata_from_class(self, cls):
         class_name = get_qualified_name(cls)
@@ -87,12 +105,16 @@ class FileTableStore(TableStore):
 
     def read_file_metadata(self):
         self.file.seek(0)
-        size = struct.unpack("<I", self.file.read(4))
-        return self.file.read(size).strip(b'\x00')
+        header_size = struct.unpack("<I", self.file.read(4))[0]
+        actual_size = struct.unpack("<I", self.file.read(4))[0]
+        return self.file.read(header_size)[:actual_size]
         
-
     def write_file_metadata(self, arr):
         size = 1024
         pad = size - len(arr)
-        return struct.pack("<I", 1024) + res + b'\x00'*pad
+        arr = struct.pack("<II", 1024, len(arr)) + arr + b'\x00'*pad
+        self.file.write(arr)
+    
+    def close(self):
+        self.file.close()
 

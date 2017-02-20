@@ -55,6 +55,21 @@ class TestFileTableStore(object):
         res = fts.decode_metadata(got)
         assert_equals(res, (0, 4, (50, 50, 4, 4)))
 
-
-
+    def test_fileio(self):
+        fts = FileTableStore(self.db_path, TestTable)
+        m1 = fts.metadata
+        fts.close()
         
+        fts = FileTableStore(self.db_path, TestTable)
+        m2 = fts.metadata
+        fts.close()
+
+        assert_equals(m1.class_name, m2.class_name)
+        assert_equals(m1.cls, m2.cls)
+        assert_equals(m1.column_names, m2.column_names)
+        assert_equals(m1.column_types, m2.column_types)
+        assert_equals(m1.column_sizes, m2.column_sizes)
+        assert_equals(m1.primary_key, m2.primary_key)
+        assert_equals(m1.unique_keys, m2.unique_keys)
+        assert_equals(m1.row_count, m2.row_count)
+
