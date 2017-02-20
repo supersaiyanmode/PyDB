@@ -90,5 +90,5 @@ ENV/
 
 # Custom
 env/*
-.sw?
+**/*.sw?
 
