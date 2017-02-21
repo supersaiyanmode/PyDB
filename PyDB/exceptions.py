@@ -26,7 +26,14 @@ class PyDBMetadataError(PyDBInternalError):
     def __init__(self, msg):
         super().__init__(msg)
 
-
 class PyDBConsistencyError(PyDBError):
     def __init__(self, msg):
         super().__init__("Inconsistent file state. " + msg)
+
+class PyDBIterationError(PyDBError):
+    def __init__(self, msg):
+        super().__init__("Iteration error: " + msg)
+
+class PyDBOutOfSpaceError(PyDBError):
+    def __init__(self, obj):
+        super().__init__("Out of space in " + str(obj))
