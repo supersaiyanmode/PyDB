@@ -20,12 +20,32 @@ class BlockDataIterator(object):
         return self
 
     def __next__(self):
-        if self.ptr < self.block.start + self.block.size:
+        res = self.check_read()
+
+        if res is not None:
+            return res
+
+        if self.block.next == -1:
+            raise StopIteration
+
+        self.block = Block.read_block(self.fh, self.block.next)
+        self.ptr = self.block.start + self.block.SIZE_HEADER
+        if self.block.size % self.chunksize != 0:
+            raise PyDBIterationError("Bad chunk size '{}' for continuation block size '{}'".format(
+                self.chunksize, self.block.size))
+
+        res = self.check_read()
+        if res is not None:
+            return res
+        raise StopIteration
+
+    def check_read(self):
+        if self.ptr < self.block.start + self.block.SIZE_HEADER + self.block.size:
             res = self.fh.read(self.chunksize)
             offset = self.ptr - self.block.start
             self.ptr += self.chunksize
             return offset, res
-        raise StopIteration
+        return None
 
 
 class Block(object):
@@ -122,15 +142,18 @@ class HeaderBlock(Block):
         fh.write(int_to_bytes(block_ptr, 4))
 
 class BlockStructure(object):
-    def __init__(self, fh, initialize=False):
+    def __init__(self, fh, initialize=False, fill=None):
         if initialize:
-            self.header_blocks, self.data_blocks = self.init_structure(fh)
+            self.header_blocks, self.data_blocks = self.init_structure(fh, fill=fill)
         else:
             self.header_blocks, self.data_blocks = self.read_structure(fh)
 
-    def init_structure(self, fh):
+    def init_structure(self, fh, fill=None):
+        if fill is None:
+            fill = int_to_bytes(-1, 4)
+
         block = HeaderBlock(0, -1, -1)
-        self.write_new_block(fh, block, fill=int_to_bytes(-1, 4))
+        self.write_new_block(fh, block, fill)
         return [block], []
 
     def read_structure(self, fh):
@@ -149,7 +172,10 @@ class BlockStructure(object):
 
         return header_blocks, data_blocks
     
-    def add_header_block(self, fh, after=None):
+    def add_header_block(self, fh, after=None, fill=None):
+        if fill is None:
+            fill = int_to_bytes(-1, 4)
+
         if after is None:
             after = self.header_blocks[-1]
         
@@ -160,7 +186,7 @@ class BlockStructure(object):
 
         pos = fh.seek(0, os.SEEK_END)
         hb = HeaderBlock(pos, next_block_pos, prior_block_pos)
-        pos = self.write_new_block(fh, hb, fill=int_to_bytes(-1, 4))
+        pos = self.write_new_block(fh, hb, fill=fill)
 
         prior_block.next = pos
         prior_block.write_header(fh)

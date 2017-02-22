@@ -2,7 +2,8 @@ import os
 from nose.tools import assert_equals
 
 from PyDB.structure.blocks import BlockStructure, DataBlock, HeaderBlock
-from PyDB.utils import bytes_to_ints
+from PyDB.structure.blocks import BlockDataIterator
+from PyDB.utils import bytes_to_ints, bytes_to_int
 
 class TestBlockStructure(object):
     file_path = "/tmp/block.test"
@@ -60,4 +61,18 @@ class TestBlockStructure(object):
                 (h[1].size, h[1].next, h[1].prev, h[1].type),
                 (h[2].size, h[2].next, h[2].prev, h[2].type)]
         assert_equals(got, expected)
+
+    def test_data_presence(self):
+        HeaderBlock.HEADER_BLOCK_SIZE = 16
+        bs = BlockStructure(self.f, initialize=True)
+        bs.add_header_block(self.f, fill=b'\x00\x00\x00\x10')
+        bs.add_header_block(self.f, after=bs.header_blocks[0],
+                fill=b'\x00\x00\x00\x20')
+        self.f.close()
+        self.f = open(self.file_path, "rb+")
+        bs2 = BlockStructure(self.f)
+        got = [bytes_to_int(x[1]) for x in BlockDataIterator(self.f, bs2.header_blocks[0], 4)]
+        expected = [-1, -1, -1, -1, 32, 32, 32, 32, 16, 16, 16, 16]
+
+        assert_equals(expected, got)
 
