@@ -10,3 +10,12 @@ def custom_import(class_name):
 
 def get_qualified_name(cls):
     return cls.__module__ + "." + cls.__name__
+
+def int_to_bytes(val, size=4):
+    return val.to_bytes(size, byteorder='big', signed=True)
+
+def bytes_to_int(val):
+    return int.from_bytes(val, byteorder='big', signed=True)
+
+def bytes_to_ints(val):
+    return [bytes_to_int(val[x:x+4]) for x in range(0, len(val), 4)]
