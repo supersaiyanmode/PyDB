@@ -154,8 +154,7 @@ class BlockStructure(object):
     def write_new_block(self, fh, block, fill='\xFF'):
         fh.seek(1, os.SEEK_END)
         block.write_header(fh)
-        if fill is not None:
-            print ("About to fill:", fill)
-            block.fill_data(fh, fill)
+        print ("About to fill:", fill)
+        block.fill_data(fh, fill)
         fh.flush()
 
