@@ -50,25 +50,23 @@ class BlockDataIterator(object):
 
 class Block(object):
     """
-    | SIZE | NEXT | PREV | TYPE | DATA... |
+    | MAGIC | SIZE | NEXT | PREV | DATA... |
     """
 
-    BLOCK_HEADER = 0
-    BLOCK_DATA = 1
-
+    MAGIC_VALUE = -1208913507
+    MAGIC_BYTES = int_to_bytes(MAGIC_VALUE, 4)
     SIZE_SIZE = 4
     SIZE_NEXT = 4
     SIZE_PREV = 4
-    SIZE_TYPE = 4
+    SIZE_MAGIC = 4
 
-    SIZE_HEADER = SIZE_SIZE + SIZE_NEXT + SIZE_PREV + SIZE_TYPE
+    SIZE_HEADER = SIZE_SIZE + SIZE_NEXT + SIZE_PREV + SIZE_MAGIC
 
-    def __init__(self, start, size, nxt, prev, typ):
+    def __init__(self, start, size, nxt, prev):
         self.start = start
         self.size = size
         self.next = nxt
         self.prev = prev
-        self.type = typ
 
     def add_next(self, fh, block):
         self.next = block.start
@@ -77,10 +75,10 @@ class Block(object):
 
     def write_header(self, fh):
         fh.seek(self.start)
+        fh.write(self.MAGIC_BYTES)
         fh.write(int_to_bytes(self.size, self.SIZE_SIZE))
         fh.write(int_to_bytes(self.next, self.SIZE_NEXT))
         fh.write(int_to_bytes(self.prev, self.SIZE_PREV))
-        fh.write(int_to_bytes(self.type, self.SIZE_TYPE))
 
     def fill_data(self, fh, data):
         if self.size % len(data) != 0:
@@ -97,105 +95,68 @@ class Block(object):
 
     def __repr__(self):
         return ("Block(start={s.start}, size={s.size}, nxt={s.next}, "
-                "prev={s.prev}, typ={s.type})").format(s=self)
+                "prev={s.prev})").format(s=self)
 
     @classmethod
     def read_block(cls, fh, start):
         fh.seek(start)
+        magic = fh.read(cls.SIZE_MAGIC)
+        if magic != cls.MAGIC_BYTES:
+            raise PyDBInternalError("Not a block at start position: {}.".format(start))
+
         size = bytes_to_int(fh.read(cls.SIZE_SIZE))
         nxt = bytes_to_int(fh.read(cls.SIZE_NEXT))
         prev = bytes_to_int(fh.read(cls.SIZE_PREV))
-        typ = bytes_to_int(fh.read(cls.SIZE_TYPE))
-
-        if typ == cls.BLOCK_HEADER:
-            if size != HeaderBlock.HEADER_BLOCK_SIZE:
-                raise PyDBInternalError("Incorrect Header block size.")
-            return HeaderBlock(start, nxt, prev)
-        if typ == cls.BLOCK_DATA:
-            return DataBlock(start, size, nxt, prev)
-
-class DataBlock(Block):
-    def __init__(self, start, size, nxt, prev):
-        super().__init__(self, start, size, nxt, prev, self.BLOCK_DATA)
-
-class HeaderBlock(Block):
-    """
-    | BLOCK1 | BLOCK2 | BLOCK3 | .. |
-    """
-
-    HEADER_BLOCK_SIZE = 1024
-
-    def __init__(self, start, nxt, prev):
-        size = self.HEADER_BLOCK_SIZE
-        super().__init__(start, size, nxt, prev, self.BLOCK_HEADER)
-
-    def get_next_available(self, fh):
-        for offset, block in BlockDataIterator(fh, self, 4):
-            block_ptr = bytes_to_int(block)
-            if block_ptr == NULL:
-                return offset
-        raise PyDBOutOfSpaceError(self)
-
-    def write_data(self, fh, block_ptr):
-        start, _ = self.get_next(fh)
-        fh.seek(start)
-        fh.write(int_to_bytes(block_ptr, 4))
+        return cls(start, size, nxt, prev)
 
 class BlockStructure(object):
-    def __init__(self, fh, initialize=False, fill=None):
+    def __init__(self, fh, block_size=1024, initialize=False, fill=None):
         if initialize:
-            self.header_blocks, self.data_blocks = self.init_structure(fh, fill=fill)
+            self.blocks = self.init_structure(fh, block_size, fill=fill)
         else:
-            self.header_blocks, self.data_blocks = self.read_structure(fh)
+            self.blocks = self.read_structure(fh)
 
-    def init_structure(self, fh, fill=None):
+    def init_structure(self, fh, block_size, fill=None):
         if fill is None:
             fill = int_to_bytes(-1, 4)
 
-        block = HeaderBlock(0, -1, -1)
+        block = Block(0, block_size, -1, -1)
         self.write_new_block(fh, block, fill)
-        return [block], []
+        return [block]
 
     def read_structure(self, fh):
-        header_blocks = []
-        data_blocks = []
+        blocks = []
         cur = 0
         while cur !=  -1:
-            header_block = Block.read_block(fh, cur)
-            if not isinstance(header_block, HeaderBlock):
-                raise PyDBInternalError("Expected a header block.")
-            header_blocks.append(header_block)
-            it = BlockDataIterator(fh, header_block, chunksize=4)
-            data = [bytes_to_int(x[1]) for x in it]
-            data_blocks += list(takewhile(lambda x: x != -1, data))
-            cur = header_block.next
+            block = Block.read_block(fh, cur)
+            blocks.append(block)
+            cur = block.next
 
-        return header_blocks, data_blocks
-    
-    def add_header_block(self, fh, after=None, fill=None):
+        return blocks
+
+    def add_block(self, fh, block_size, after=None, fill=None):
         if fill is None:
             fill = int_to_bytes(-1, 4)
 
         if after is None:
-            after = self.header_blocks[-1]
-        
+            after = self.blocks[-1]
         prior_block = after
         next_block = Block.read_block(fh, after.next) if after.next != -1 else None
         prior_block_pos = after.start
         next_block_pos = after.next
 
         pos = fh.seek(0, os.SEEK_END)
-        hb = HeaderBlock(pos, next_block_pos, prior_block_pos)
-        pos = self.write_new_block(fh, hb, fill=fill)
+        block = Block(pos, block_size, next_block_pos, prior_block_pos)
+        pos = self.write_new_block(fh, block, fill=fill)
 
         prior_block.next = pos
         prior_block.write_header(fh)
-        hb.write_header(fh)
+        block.write_header(fh)
         if next_block is not None:
-            next_block.prev = hb.start
+            next_block.prev = block.start
             next_block.write_header(fh)
 
-        self.header_blocks.append(hb)
+        self.blocks.append(block)
         fh.flush()
         return pos
 
