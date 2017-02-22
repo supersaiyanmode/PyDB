@@ -149,14 +149,26 @@ class BlockStructure(object):
 
         return header_blocks, data_blocks
     
-    def add_header_block(self, fh):
+    def add_header_block(self, fh, after=None):
+        if after is None:
+            after = self.header_blocks[-1]
+        
+        prior_block = after
+        next_block = Block.read_block(fh, after.next) if after.next != -1 else None
+        prior_block_pos = after.start
+        next_block_pos = after.next
+
         pos = fh.seek(0, os.SEEK_END)
-        hb = HeaderBlock(pos, -1, self.header_blocks[-1].start)
+        hb = HeaderBlock(pos, next_block_pos, prior_block_pos)
         pos = self.write_new_block(fh, hb, fill=int_to_bytes(-1, 4))
-        self.header_blocks[-1].next = pos
-        hb.prev = self.header_blocks[-1].start
-        self.header_blocks[-1].write_header(fh)
+
+        prior_block.next = pos
+        prior_block.write_header(fh)
         hb.write_header(fh)
+        if next_block is not None:
+            next_block.prev = hb.start
+            next_block.write_header(fh)
+
         self.header_blocks.append(hb)
         fh.flush()
         return pos

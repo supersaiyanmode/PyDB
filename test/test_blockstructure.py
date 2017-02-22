@@ -42,7 +42,7 @@ class TestBlockStructure(object):
         HeaderBlock.HEADER_BLOCK_SIZE = 16
         bs = BlockStructure(self.f, initialize=True)
         bs.add_header_block(self.f)
-        bs.add_header_block(self.f)
+        bs.add_header_block(self.f, after=bs.header_blocks[0])
         self.f.close()
         self.f = open(self.file_path, "rb+")
         bs2 = BlockStructure(self.f)
@@ -51,9 +51,9 @@ class TestBlockStructure(object):
         assert_equals(0, len(bs2.data_blocks))
 
         expected = [
-                (HeaderBlock.HEADER_BLOCK_SIZE, 32, -1, 0),
-                (HeaderBlock.HEADER_BLOCK_SIZE, 64, 0, 0),
-                (HeaderBlock.HEADER_BLOCK_SIZE, -1, 32, 0)]
+                (HeaderBlock.HEADER_BLOCK_SIZE, 64, -1, 0),
+                (HeaderBlock.HEADER_BLOCK_SIZE, 32, 0, 0),
+                (HeaderBlock.HEADER_BLOCK_SIZE, -1, 64, 0)]
         h = bs2.header_blocks
         got = [
                 (h[0].size, h[0].next, h[0].prev, h[0].type),
