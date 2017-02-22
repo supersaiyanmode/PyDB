@@ -1,5 +1,4 @@
 import os
-from nose.tools import assert_equals
 
 from PyDB.structure.blocks import BlockStructure, Block
 from PyDB.structure.blocks import BlockDataIterator
@@ -22,7 +21,7 @@ class TestBlockStructure(object):
         got = bytes_to_ints(got)
         expected = [Block.MAGIC_VALUE, 16, -1, -1,
                 -1, -1, -1, -1]
-        assert_equals(expected, got)
+        assert expected == got
 
     def test_add_block(self):
         bs = BlockStructure(self.f, block_size=16, initialize=True)
@@ -35,7 +34,7 @@ class TestBlockStructure(object):
                 -1, -1, -1, -1,
                 Block.MAGIC_VALUE, 16, -1, 0,
                 -1, -1, -1, -1]
-        assert_equals(expected, got)
+        assert expected == got
 
     def test_read_structure_header(self):
         bs = BlockStructure(self.f, block_size=16, initialize=True)
@@ -45,7 +44,7 @@ class TestBlockStructure(object):
         self.f = open(self.file_path, "rb+")
         bs2 = BlockStructure(self.f)
 
-        assert_equals(3, len(bs2.blocks))
+        assert len(bs2.blocks) == 3
 
         expected = [
                 (16, 64, -1),
@@ -56,7 +55,7 @@ class TestBlockStructure(object):
                 (h[0].size, h[0].next, h[0].prev),
                 (h[1].size, h[1].next, h[1].prev),
                 (h[2].size, h[2].next, h[2].prev)]
-        assert_equals(got, expected)
+        assert expected == got
 
     def test_data_presence(self):
         bs = BlockStructure(self.f, block_size=16, initialize=True)
@@ -69,5 +68,5 @@ class TestBlockStructure(object):
         got = [bytes_to_int(x[1]) for x in BlockDataIterator(self.f, bs2.blocks[0], 4)]
         expected = [-1, -1, -1, -1, 32, 32, 32, 32, 16, 16, 16, 16]
 
-        assert_equals(expected, got)
+        assert expected == got
 
