@@ -61,14 +61,12 @@ class Block(object):
         fh.write(int_to_bytes(self.next, self.SIZE_NEXT))
         fh.write(int_to_bytes(self.prev, self.SIZE_PREV))
         fh.write(int_to_bytes(self.type, self.SIZE_TYPE))
-        print("Writing: ", self)
 
     def fill_data(self, fh, data):
         if self.size % len(data) != 0:
             raise PyDBInternalError("Can't fill data. Not aligned.")
         fh.seek(self.start + self.SIZE_HEADER)
         for _ in range(self.size // len(data)):
-            print("Writing: ", data)
             fh.write(data)
 
     def write_data(self, fh, position, data):
@@ -154,7 +152,6 @@ class BlockStructure(object):
     def write_new_block(self, fh, block, fill='\xFF'):
         fh.seek(1, os.SEEK_END)
         block.write_header(fh)
-        print ("About to fill:", fill)
         block.fill_data(fh, fill)
         fh.flush()
 
