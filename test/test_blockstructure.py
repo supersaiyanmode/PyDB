@@ -24,3 +24,17 @@ class TestBlockStructure(object):
                 0, -1, -1, -1, -1]
         assert_equals(expected, got)
 
+    def test_add_header_block(self):
+        HeaderBlock.HEADER_BLOCK_SIZE = 16
+        bs = BlockStructure(self.f, initialize=True)
+        bs.add_header_block(self.f)
+        self.f.seek(0)
+        content = self.f.read()
+        got = bytes_to_ints(content)
+        expected = [
+                HeaderBlock.HEADER_BLOCK_SIZE, 32, -1, 0,
+                -1, -1, -1, -1,
+                HeaderBlock.HEADER_BLOCK_SIZE, -1, 0, 0,
+                -1, -1, -1, -1]
+        assert_equals(expected, got)
+

@@ -148,10 +148,23 @@ class BlockStructure(object):
             cur = Block.read_block(cur.next)
 
         return header_blocks, data_blocks
+    
+    def add_header_block(self, fh):
+        pos = fh.seek(0, os.SEEK_END)
+        hb = HeaderBlock(pos, -1, self.header_blocks[-1].start)
+        pos = self.write_new_block(fh, hb, fill=int_to_bytes(-1, 4))
+        self.header_blocks[-1].next = pos
+        hb.prev = self.header_blocks[-1].start
+        self.header_blocks[-1].write_header(fh)
+        hb.write_header(fh)
+        self.header_blocks.append(hb)
+        fh.flush()
+        return pos
 
-    def write_new_block(self, fh, block, fill='\xFF'):
-        fh.seek(1, os.SEEK_END)
+    def write_new_block(self, fh, block, fill):
+        pos = fh.seek(block.start)
         block.write_header(fh)
         block.fill_data(fh, fill)
         fh.flush()
+        return pos
 
