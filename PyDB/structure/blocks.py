@@ -9,7 +9,7 @@ class BlockDataIterator(object):
     def __init__(self, fh, block, chunksize=1):
         self.fh = fh
         self.block = block
-        self.ptr = self.block.start
+        self.ptr = self.block.start + self.block.SIZE_HEADER
         if block.size % chunksize != 0:
             raise PyDBIterationError("Bad chunk size '{}' for block size '{}'".format(
                 chunksize, self.block.size))
@@ -24,7 +24,7 @@ class BlockDataIterator(object):
             res = self.fh.read(self.chunksize)
             offset = self.ptr - self.block.start
             self.ptr += self.chunksize
-            return self.ptr - self.start - self.chunksize, res
+            return offset, res
         raise StopIteration
 
 
@@ -79,19 +79,19 @@ class Block(object):
         return ("Block(start={s.start}, size={s.size}, nxt={s.next}, "
                 "prev={s.prev}, typ={s.type})").format(s=self)
 
-    @staticmethod
-    def read_block(fh, start=0):
+    @classmethod
+    def read_block(cls, fh, start):
         fh.seek(start)
-        size = bytes_to_int(fh.read(SIZE_SIZE))
-        nxt = bytes_to_int(fh.read(SIZE_NEXT))
-        prev = bytes_to_int(fh.read(SIZE_PREV))
-        typ = bytes_to_int(fh.read(SIZE_TYPE))
+        size = bytes_to_int(fh.read(cls.SIZE_SIZE))
+        nxt = bytes_to_int(fh.read(cls.SIZE_NEXT))
+        prev = bytes_to_int(fh.read(cls.SIZE_PREV))
+        typ = bytes_to_int(fh.read(cls.SIZE_TYPE))
 
-        if typ == self.BLOCK_HEADER:
+        if typ == cls.BLOCK_HEADER:
             if size != HeaderBlock.HEADER_BLOCK_SIZE:
                 raise PyDBInternalError("Incorrect Header block size.")
             return HeaderBlock(start, nxt, prev)
-        if typ == self.BLOCK_DATA:
+        if typ == cls.BLOCK_DATA:
             return DataBlock(start, size, nxt, prev)
 
 class DataBlock(Block):
@@ -126,7 +126,7 @@ class BlockStructure(object):
         if initialize:
             self.header_blocks, self.data_blocks = self.init_structure(fh)
         else:
-            self.header_blocks, self.blocks = self.read_structure(fh)
+            self.header_blocks, self.data_blocks = self.read_structure(fh)
 
     def init_structure(self, fh):
         block = HeaderBlock(0, -1, -1)
@@ -134,18 +134,18 @@ class BlockStructure(object):
         return [block], []
 
     def read_structure(self, fh):
-        header_block = Block.read_block(fh)
-        if not isinstance(header_block, HeaderBlock):
-            raise PyDBInternalError("Expected a header block.")
         header_blocks = []
         data_blocks = []
-        cur = header_block
-        while cur != NULL:
-            header_block.append(cur)
+        cur = 0
+        while cur !=  -1:
+            header_block = Block.read_block(fh, cur)
+            if not isinstance(header_block, HeaderBlock):
+                raise PyDBInternalError("Expected a header block.")
+            header_blocks.append(header_block)
             it = BlockDataIterator(fh, header_block, chunksize=4)
             data = [bytes_to_int(x[1]) for x in it]
-            data_blocks += list(takewhile(lambda x: x != NULL, data))
-            cur = Block.read_block(cur.next)
+            data_blocks += list(takewhile(lambda x: x != -1, data))
+            cur = header_block.next
 
         return header_blocks, data_blocks
     
