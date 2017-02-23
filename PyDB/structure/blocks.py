@@ -42,7 +42,7 @@ class BlockDataIterator(object):
     def check_read(self):
         if self.ptr < self.block.start + self.block.SIZE_HEADER + self.block.size:
             res = self.fh.read(self.chunksize)
-            offset = self.ptr - self.block.start
+            offset = self.ptr - self.block.start - self.block.SIZE_HEADER
             self.ptr += self.chunksize
             return self.block, offset, res
         return None
@@ -104,23 +104,23 @@ class Block(object):
         return cls(start, size, nxt, prev)
 
 class BlockStructure(object):
-    def __init__(self, fh, block_size=1024, initialize=False, fill=None):
+    def __init__(self, fh, position=0, block_size=1024, initialize=False, fill=None):
         if initialize:
-            self.blocks = self.init_structure(fh, block_size, fill=fill)
+            self.blocks = self.init_structure(fh, position, block_size, fill=fill)
         else:
-            self.blocks = self.read_structure(fh)
+            self.blocks = self.read_structure(fh, position)
 
-    def init_structure(self, fh, block_size, fill=None):
+    def init_structure(self, fh, position, block_size, fill=None):
         if fill is None:
             fill = int_to_bytes(-1, 4)
 
-        block = Block(0, block_size, -1, -1)
+        block = Block(position, block_size, -1, -1)
         self.write_new_block(fh, block, fill)
         return [block]
 
-    def read_structure(self, fh):
+    def read_structure(self, fh, position):
         blocks = []
-        cur = 0
+        cur = position
         while cur !=  -1:
             block = Block.read_block(fh, cur)
             blocks.append(block)
@@ -160,4 +160,27 @@ class BlockStructure(object):
         block.fill_data(fh, fill)
         fh.flush()
         return pos
+
+class MultiBlockStructure(object):
+    def __init__(self, fh, block_size=1024, initialize=False, fill=None):
+       self.header_structure = BlockStructure(fh, block_size=block_size,
+               initialize=initialize, fill=fill)
+       self.super_blocks = self.read_structure(fh, self.header_structure)
+
+    def read_structure(self, fh, header_structure):
+        it = BlockDataIterator(fh, header_structure.blocks[0], chunksize=4)
+        it = ((a, b, bytes_to_int(c)) for a, b, c in it)
+        super_blocks_pos = [x[2] for x in takewhile(lambda x: x[2] != -1, it)]
+        return [BlockStructure(fh, x) for x in super_blocks_pos]
+
+    def add_structure(self, fh, block_size, fill=None):
+        pos = fh.seek(0, os.SEEK_END)
+        block_structure = BlockStructure(fh, position=pos, initialize=True,
+                block_size=block_size, fill=fill)
+        it = BlockDataIterator(fh, self.header_structure.blocks[0], 4)
+        it = ((a, b, bytes_to_int(c)) for a, b, c in it)
+        block, offset, data = next(x for x in it if x[2] == -1)
+        block.write_data(fh, offset, int_to_bytes(pos, 4))
+        fh.flush()
+        return block_structure
 

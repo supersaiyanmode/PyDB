@@ -2,7 +2,7 @@ import os
 
 import pytest
 
-from PyDB.structure.blocks import BlockStructure, Block
+from PyDB.structure.blocks import BlockStructure, Block, MultiBlockStructure
 from PyDB.structure.blocks import BlockDataIterator
 from PyDB.utils import bytes_to_ints, bytes_to_int, int_to_bytes
 from PyDB.exceptions import PyDBIterationError, PyDBInternalError
@@ -110,6 +110,48 @@ class TestDataIterator(FileTest):
         self.reopen_file()
 
         bs2 = BlockStructure(self.f)
+
+        with pytest.raises(PyDBIterationError):
+            list(BlockDataIterator(self.f, bs2.blocks[0], chunksize=10))
+
         with pytest.raises(PyDBIterationError):
             list(BlockDataIterator(self.f, bs2.blocks[0], chunksize=3))
+
+class TestMultiBlockStructure(FileTest):
+    def test_intialize(self):
+        mbs = MultiBlockStructure(self.f, initialize=True, block_size=16)
+        self.f.seek(0)
+        got = bytes_to_ints(self.f.read())
+        expected = [
+            Block.MAGIC_VALUE, 16, -1, -1,
+            -1, -1, -1, -1,
+        ]
+
+        assert expected == got
+
+    def test_add_blocks(self):
+        mbs = MultiBlockStructure(self.f, initialize=True, block_size=16)
+        bs1 = mbs.add_structure(self.f, 16)
+        bs2 = mbs.add_structure(self.f, 16)
+        bs1.add_block(self.f, 16)
+        bs2.add_block(self.f, 16)
+        bs2.add_block(self.f, 16)
+
+        self.f.seek(0)
+        got = bytes_to_ints(self.f.read())
+        expected = [
+            Block.MAGIC_VALUE, 16, -1, -1,
+            32, 64, -1, -1,
+            Block.MAGIC_VALUE, 16, 96, -1,
+            -1, -1, -1, -1,
+            Block.MAGIC_VALUE, 16, 128, -1,
+            -1, -1, -1, -1,
+            Block.MAGIC_VALUE, 16, -1, 32,
+            -1, -1, -1, -1,
+            Block.MAGIC_VALUE, 16, 160, 64,
+            -1, -1, -1, -1,
+            Block.MAGIC_VALUE, 16, -1, 128,
+            -1, -1, -1, -1,
+        ]
+        assert expected == got
 
