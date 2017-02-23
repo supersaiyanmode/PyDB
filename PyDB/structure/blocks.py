@@ -9,7 +9,7 @@ class BlockDataIterator(object):
     def __init__(self, fh, block, chunksize=1):
         self.fh = fh
         self.block = block
-        self.ptr = self.block.start + self.block.SIZE_HEADER
+        self.ptr = self.block.start + self.block.get_header_size()
         if block.size % chunksize != 0:
             raise PyDBIterationError("Bad chunk size '{}' for block size '{}'".format(
                 chunksize, self.block.size))
@@ -29,7 +29,7 @@ class BlockDataIterator(object):
             raise StopIteration
 
         self.block = Block.read_block(self.fh, self.block.next)
-        self.ptr = self.block.start + self.block.SIZE_HEADER
+        self.ptr = self.block.start + self.block.get_header_size()
         if self.block.size % self.chunksize != 0:
             raise PyDBIterationError("Bad chunk size '{}' for continuation block size '{}'".format(
                 self.chunksize, self.block.size))
@@ -67,6 +67,9 @@ class Block(object):
         self.next = nxt
         self.prev = prev
 
+    def get_header_size(self):
+        return self.SIZE_HEADER
+
     def write_header(self, fh):
         fh.seek(self.start)
         fh.write(self.MAGIC_BYTES)
@@ -77,14 +80,14 @@ class Block(object):
     def fill_data(self, fh, data):
         if self.size % len(data) != 0:
             raise PyDBInternalError("Can't fill data. Not aligned.")
-        fh.seek(self.start + self.SIZE_HEADER)
+        fh.seek(self.start + self.get_header_size())
         for _ in range(self.size // len(data)):
             fh.write(data)
 
     def write_data(self, fh, position, data):
         if position < 0 or position + len(data) >= self.size:
             raise PyDBInternalError("Invalid position to write in.")
-        fh.seek(self.start + self.SIZE_HEADER + position)
+        fh.seek(self.start + self.get_header_size() + position)
         fh.write(data)
 
     def __repr__(self):
