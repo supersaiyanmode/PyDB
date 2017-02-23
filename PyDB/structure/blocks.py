@@ -44,9 +44,8 @@ class BlockDataIterator(object):
             res = self.fh.read(self.chunksize)
             offset = self.ptr - self.block.start
             self.ptr += self.chunksize
-            return offset, res
+            return self.block, offset, res
         return None
-
 
 class Block(object):
     """
@@ -83,7 +82,7 @@ class Block(object):
             fh.write(data)
 
     def write_data(self, fh, position, data):
-        if position < 0 or position >= self.size:
+        if position < 0 or position + len(data) >= self.size:
             raise PyDBInternalError("Invalid position to write in.")
         fh.seek(self.start + self.SIZE_HEADER + position)
         fh.write(data)

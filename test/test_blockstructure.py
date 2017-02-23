@@ -80,9 +80,16 @@ class TestBlockStructure(FileTest):
         block.write_data(self.f, 4, b'\x03\x05')
         self.reopen_file()
         bs2 = BlockStructure(self.f)
-        got = [bytes_to_int(x[1]) for x in BlockDataIterator(self.f, bs2.blocks[0], 4)]
+        got = [bytes_to_int(x[2]) for x in BlockDataIterator(self.f, bs2.blocks[0], 4)]
         expected = [-1, -1, -1, -1, 0, 50659328, 0, 0] #50659328 == \x03\x05\x00\x00
         assert expected == got
+
+        with pytest.raises(PyDBInternalError):
+            bs2.blocks[0].write_data(self.f, -1, b'')
+
+        bs2.blocks[0].write_data(self.f, 10, b'\x00'*5)
+        with pytest.raises(PyDBInternalError):
+            bs2.blocks[0].write_data(self.f, 10, b'\x00'*6)
 
 class TestDataIterator(FileTest):
     def test_data_presence(self):
@@ -92,7 +99,7 @@ class TestDataIterator(FileTest):
                 fill=b'\x00\x00\x00\x20')
         self.reopen_file()
         bs2 = BlockStructure(self.f)
-        got = [bytes_to_int(x[1]) for x in BlockDataIterator(self.f, bs2.blocks[0], 4)]
+        got = [bytes_to_int(x[2]) for x in BlockDataIterator(self.f, bs2.blocks[0], 4)]
         expected = [-1, -1, -1, -1, 32, 32, 32, 32, 16, 16, 16, 16]
 
         assert expected == got
