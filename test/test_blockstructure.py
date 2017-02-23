@@ -27,7 +27,7 @@ class TestBlockStructure(FileTest):
         self.f.seek(0)
         got = self.f.read()
         got = bytes_to_ints(got)
-        expected = [Block.MAGIC_VALUE, 16, -1, -1,
+        expected = [Block.MAGIC_VALUE, 16, -1, -1, 0,
                 -1, -1, -1, -1]
         assert expected == got
 
@@ -38,9 +38,9 @@ class TestBlockStructure(FileTest):
         content = self.f.read()
         got = bytes_to_ints(content)
         expected = [
-                Block.MAGIC_VALUE, 16, 32, -1,
+                Block.MAGIC_VALUE, 16, 36, -1, 0,
                 -1, -1, -1, -1,
-                Block.MAGIC_VALUE, 16, -1, 0,
+                Block.MAGIC_VALUE, 16, -1, 0, 0,
                 -1, -1, -1, -1]
         assert expected == got
 
@@ -54,14 +54,14 @@ class TestBlockStructure(FileTest):
         assert len(bs2.blocks) == 3
 
         expected = [
-                (16, 64, -1),
-                (16, 32, 0),
-                (16, -1, 64)]
+                (16, 72, -1, 0),
+                (16, 36, 0, 0),
+                (16, -1, 72, 0)]
         h = bs2.blocks
         got = [
-                (h[0].size, h[0].next, h[0].prev),
-                (h[1].size, h[1].next, h[1].prev),
-                (h[2].size, h[2].next, h[2].prev)]
+                (h[0].size, h[0].next, h[0].prev, h[0].next_empty),
+                (h[1].size, h[1].next, h[1].prev, h[1].next_empty),
+                (h[2].size, h[2].next, h[2].prev, h[2].next_empty)]
         assert expected == got
 
     def test_bad_magic(self):
@@ -123,7 +123,7 @@ class TestMultiBlockStructure(FileTest):
         self.f.seek(0)
         got = bytes_to_ints(self.f.read())
         expected = [
-            Block.MAGIC_VALUE, 16, -1, -1,
+            Block.MAGIC_VALUE, 16, -1, -1, 0,
             -1, -1, -1, -1,
         ]
 
@@ -140,17 +140,17 @@ class TestMultiBlockStructure(FileTest):
         self.f.seek(0)
         got = bytes_to_ints(self.f.read())
         expected = [
-            Block.MAGIC_VALUE, 16, -1, -1,
-            32, 64, -1, -1,
-            Block.MAGIC_VALUE, 16, 96, -1,
+            Block.MAGIC_VALUE, 16, -1, -1, 0,
+            36, 72, -1, -1,
+            Block.MAGIC_VALUE, 16, 108, -1, 0,
             -1, -1, -1, -1,
-            Block.MAGIC_VALUE, 16, 128, -1,
+            Block.MAGIC_VALUE, 16, 144, -1, 0,
             -1, -1, -1, -1,
-            Block.MAGIC_VALUE, 16, -1, 32,
+            Block.MAGIC_VALUE, 16, -1, 36, 0,
             -1, -1, -1, -1,
-            Block.MAGIC_VALUE, 16, 160, 64,
+            Block.MAGIC_VALUE, 16, 180, 72, 0,
             -1, -1, -1, -1,
-            Block.MAGIC_VALUE, 16, -1, 128,
+            Block.MAGIC_VALUE, 16, -1, 144, 0,
             -1, -1, -1, -1,
         ]
         assert expected == got

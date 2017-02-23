@@ -40,32 +40,34 @@ class BlockDataIterator(object):
         raise StopIteration
 
     def check_read(self):
-        if self.ptr < self.block.start + self.block.SIZE_HEADER + self.block.size:
+        if self.ptr < self.block.start + self.block.get_header_size() + self.block.size:
             res = self.fh.read(self.chunksize)
-            offset = self.ptr - self.block.start - self.block.SIZE_HEADER
+            offset = self.ptr - self.block.start - self.block.get_header_size()
             self.ptr += self.chunksize
             return self.block, offset, res
         return None
 
 class Block(object):
     """
-    | MAGIC | SIZE | NEXT | PREV | DATA... |
+    | MAGIC | SIZE | NEXT | PREV | NEXT_EMPTY | DATA... |
     """
 
     MAGIC_VALUE = -1208913507
     MAGIC_BYTES = int_to_bytes(MAGIC_VALUE, 4)
+    SIZE_MAGIC = 4
     SIZE_SIZE = 4
     SIZE_NEXT = 4
     SIZE_PREV = 4
-    SIZE_MAGIC = 4
+    SIZE_NEXT_EMPTY = 4
 
-    SIZE_HEADER = SIZE_SIZE + SIZE_NEXT + SIZE_PREV + SIZE_MAGIC
+    SIZE_HEADER = SIZE_MAGIC + SIZE_SIZE + SIZE_NEXT + SIZE_PREV + SIZE_NEXT_EMPTY
 
-    def __init__(self, start, size, nxt, prev):
+    def __init__(self, start, size, nxt, prev, next_empty=0):
         self.start = start
         self.size = size
         self.next = nxt
         self.prev = prev
+        self.next_empty = next_empty
 
     def get_header_size(self):
         return self.SIZE_HEADER
@@ -76,6 +78,7 @@ class Block(object):
         fh.write(int_to_bytes(self.size, self.SIZE_SIZE))
         fh.write(int_to_bytes(self.next, self.SIZE_NEXT))
         fh.write(int_to_bytes(self.prev, self.SIZE_PREV))
+        fh.write(int_to_bytes(self.next_empty, self.SIZE_NEXT_EMPTY))
 
     def fill_data(self, fh, data):
         if self.size % len(data) != 0:
@@ -85,6 +88,9 @@ class Block(object):
             fh.write(data)
 
     def write_data(self, fh, position, data):
+        """
+        Writes data at the `position`, but doesn't update self.next_empty.
+        """
         if position < 0 or position + len(data) >= self.size:
             raise PyDBInternalError("Invalid position to write in.")
         fh.seek(self.start + self.get_header_size() + position)
@@ -104,7 +110,8 @@ class Block(object):
         size = bytes_to_int(fh.read(cls.SIZE_SIZE))
         nxt = bytes_to_int(fh.read(cls.SIZE_NEXT))
         prev = bytes_to_int(fh.read(cls.SIZE_PREV))
-        return cls(start, size, nxt, prev)
+        next_empty = bytes_to_int(fh.read(cls.SIZE_NEXT_EMPTY))
+        return cls(start, size, nxt, prev, next_empty=next_empty)
 
 class BlockStructure(object):
     def __init__(self, fh, position=0, block_size=1024, initialize=False, fill=None):
