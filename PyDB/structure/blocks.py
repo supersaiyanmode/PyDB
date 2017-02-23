@@ -68,11 +68,6 @@ class Block(object):
         self.next = nxt
         self.prev = prev
 
-    def add_next(self, fh, block):
-        self.next = block.start
-        block.prev = self.start
-        self.write_header(fh)
-
     def write_header(self, fh):
         fh.seek(self.start)
         fh.write(self.MAGIC_BYTES)

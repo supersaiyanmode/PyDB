@@ -1,10 +1,13 @@
 import os
 
+import pytest
+
 from PyDB.structure.blocks import BlockStructure, Block
 from PyDB.structure.blocks import BlockDataIterator
-from PyDB.utils import bytes_to_ints, bytes_to_int
+from PyDB.utils import bytes_to_ints, bytes_to_int, int_to_bytes
+from PyDB.exceptions import PyDBIterationError, PyDBInternalError
 
-class TestBlockStructure(object):
+class FileTest(object):
     file_path = "/tmp/block.test"
 
     def setup(self):
@@ -14,6 +17,11 @@ class TestBlockStructure(object):
         self.f.close()
         os.unlink(self.file_path)
 
+    def reopen_file(self):
+        self.f.close()
+        self.f = open(self.file_path, "rb+")
+
+class TestBlockStructure(FileTest):
     def test_initialization(self):
         bs = BlockStructure(self.f, block_size=16, initialize=True)
         self.f.seek(0)
@@ -40,8 +48,7 @@ class TestBlockStructure(object):
         bs = BlockStructure(self.f, block_size=16, initialize=True)
         bs.add_block(self.f, 16)
         bs.add_block(self.f, 16, after=bs.blocks[0])
-        self.f.close()
-        self.f = open(self.file_path, "rb+")
+        self.reopen_file()
         bs2 = BlockStructure(self.f)
 
         assert len(bs2.blocks) == 3
@@ -57,16 +64,35 @@ class TestBlockStructure(object):
                 (h[2].size, h[2].next, h[2].prev)]
         assert expected == got
 
+    def test_bad_magic(self):
+        bs = BlockStructure(self.f, block_size=16, initialize=True)
+        orig = Block.MAGIC_BYTES
+        Block.MAGIC_BYTES = int_to_bytes(123424736, 4)
+        bs.add_block(self.f, 16, fill=b'\x00\x00\x00\x10')
+        Block.MAGIC_BYTES = orig
+        self.reopen_file()
+        with pytest.raises(PyDBInternalError):
+            BlockStructure(self.f)
+
+class TestDataIterator(FileTest):
     def test_data_presence(self):
         bs = BlockStructure(self.f, block_size=16, initialize=True)
         bs.add_block(self.f, 16, fill=b'\x00\x00\x00\x10')
         bs.add_block(self.f, 16, after=bs.blocks[0],
                 fill=b'\x00\x00\x00\x20')
-        self.f.close()
-        self.f = open(self.file_path, "rb+")
+        self.reopen_file()
         bs2 = BlockStructure(self.f)
         got = [bytes_to_int(x[1]) for x in BlockDataIterator(self.f, bs2.blocks[0], 4)]
         expected = [-1, -1, -1, -1, 32, 32, 32, 32, 16, 16, 16, 16]
 
         assert expected == got
+
+    def test_bad_chunksize(self):
+        bs = BlockStructure(self.f, block_size=48, initialize=True)
+        bs.add_block(self.f, 16, fill=b'\x00\x00\x00\x10')
+        self.reopen_file()
+
+        bs2 = BlockStructure(self.f)
+        with pytest.raises(PyDBIterationError):
+            list(BlockDataIterator(self.f, bs2.blocks[0], chunksize=3))
 
