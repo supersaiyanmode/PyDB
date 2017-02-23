@@ -74,6 +74,16 @@ class TestBlockStructure(FileTest):
         with pytest.raises(PyDBInternalError):
             BlockStructure(self.f)
 
+    def test_write_data(self):
+        bs = BlockStructure(self.f, block_size=16, initialize=True)
+        block = bs.add_block(self.f, 16, fill=b'\x00')
+        block.write_data(self.f, 4, b'\x03\x05')
+        self.reopen_file()
+        bs2 = BlockStructure(self.f)
+        got = [bytes_to_int(x[1]) for x in BlockDataIterator(self.f, bs2.blocks[0], 4)]
+        expected = [-1, -1, -1, -1, 0, 50659328, 0, 0] #50659328 == \x03\x05\x00\x00
+        assert expected == got
+
 class TestDataIterator(FileTest):
     def test_data_presence(self):
         bs = BlockStructure(self.f, block_size=16, initialize=True)

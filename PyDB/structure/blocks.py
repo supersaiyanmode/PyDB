@@ -153,7 +153,7 @@ class BlockStructure(object):
 
         self.blocks.append(block)
         fh.flush()
-        return pos
+        return block
 
     def write_new_block(self, fh, block, fill):
         pos = fh.seek(block.start)
