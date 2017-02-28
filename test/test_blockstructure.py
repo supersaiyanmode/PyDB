@@ -140,7 +140,7 @@ class TestMultiBlockStructure(FileTest):
         self.f.seek(0)
         got = bytes_to_ints(self.f.read())
         expected = [
-            Block.MAGIC_VALUE, 16, -1, -1, 0,
+            Block.MAGIC_VALUE, 16, -1, -1, 8,
             36, 72, -1, -1,
             Block.MAGIC_VALUE, 16, 108, -1, 0,
             -1, -1, -1, -1,

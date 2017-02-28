@@ -3,7 +3,7 @@ from itertools import takewhile
 
 from PyDB.exceptions import PyDBOutOfSpaceError, PyDBIterationError
 from PyDB.exceptions import PyDBInternalError
-from PyDB.utils import int_to_bytes, bytes_to_int
+from PyDB.utils import int_to_bytes, bytes_to_int, byte_chunker
 
 class BlockDataIterator(object):
     def __init__(self, fh, block, chunksize=1):
@@ -53,7 +53,7 @@ class BlockStructureOrderedDataIO(object):
         self.block_structure = block_structure
         self.blocksize = blocksize
 
-    def append_data(self, data):
+    def append_data(self, fh, data):
         last_block = self.block_structure.blocks[-1]
 
         data_pos = 0
@@ -73,8 +73,28 @@ class BlockStructureOrderedDataIO(object):
             data_left -= cur_size
             data_pos += cur_size
 
-    def iterdata(self, fh, offset=0, chunksize=1):
-        pass
+    def iterdata(self, fh, offset=0, chunk_size=1):
+        #Seek to correct block
+        for cur_block in self.block_structure.blocks:
+            if offset < cur_block.size:
+                break
+        else:
+            raise PyDBIterationError("Invalid offset.")
+
+        ptr = cur_block.start + cur_block.get_header_size() + offset
+        byte_data = self.iterbytes(fh, cur_block, ptr)
+        for b in byte_chunker(byte_data, chunk_size=chunk_size):
+            yield b
+
+    def iterbytes(self, fh, block, ptr):
+        while True:
+            if ptr < block.start + block.get_header_size() + block.size:
+                yield fh.read(1)
+            if block.next == -1:
+                break
+
+            block = Block.read_block(fh, block.next)
+            ptr = block.start + block.get_header_size()
 
 
 class Block(object):
@@ -205,10 +225,11 @@ class MultiBlockStructure(object):
     def __init__(self, fh, block_size=1024, initialize=False, fill=None):
        self.header_structure = BlockStructure(fh, block_size=block_size,
                initialize=initialize, fill=fill)
+       self.header = BlockStructureOrderedDataIO(self.header_structure)
        self.super_blocks = self.read_structure(fh, self.header_structure)
 
     def read_structure(self, fh, header_structure):
-        it = BlockDataIterator(fh, header_structure.blocks[0], chunksize=4)
+        it = self.header.iterdata(fh, chunk_size=4)
         it = ((a, b, bytes_to_int(c)) for a, b, c in it)
         super_blocks_pos = [x[2] for x in takewhile(lambda x: x[2] != -1, it)]
         return [BlockStructure(fh, x) for x in super_blocks_pos]
@@ -217,10 +238,7 @@ class MultiBlockStructure(object):
         pos = fh.seek(0, os.SEEK_END)
         block_structure = BlockStructure(fh, position=pos, initialize=True,
                 block_size=block_size, fill=fill)
-        it = BlockDataIterator(fh, self.header_structure.blocks[0], 4)
-        it = ((a, b, bytes_to_int(c)) for a, b, c in it)
-        block, offset, data = next(x for x in it if x[2] == -1)
-        block.write_data(fh, offset, int_to_bytes(pos, 4))
+        self.header.append_data(fh, int_to_bytes(pos))
         fh.flush()
         return block_structure
 
