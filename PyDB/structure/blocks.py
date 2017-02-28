@@ -5,48 +5,6 @@ from PyDB.exceptions import PyDBOutOfSpaceError, PyDBIterationError
 from PyDB.exceptions import PyDBInternalError
 from PyDB.utils import int_to_bytes, bytes_to_int, byte_chunker
 
-class BlockDataIterator(object):
-    def __init__(self, fh, block, chunksize=1):
-        self.fh = fh
-        self.block = block
-        self.ptr = self.block.start + self.block.get_header_size()
-        if block.size % chunksize != 0:
-            raise PyDBIterationError("Bad chunk size '{}' for block size '{}'".format(
-                chunksize, self.block.size))
-        self.chunksize = chunksize
-
-    def __iter__(self):
-        self.fh.seek(self.ptr)
-        return self
-
-    def __next__(self):
-        res = self.check_read()
-
-        if res is not None:
-            return res
-
-        if self.block.next == -1:
-            raise StopIteration
-
-        self.block = Block.read_block(self.fh, self.block.next)
-        self.ptr = self.block.start + self.block.get_header_size()
-        if self.block.size % self.chunksize != 0:
-            raise PyDBIterationError("Bad chunk size '{}' for continuation block size '{}'".format(
-                self.chunksize, self.block.size))
-
-        res = self.check_read()
-        if res is not None:
-            return res
-        raise StopIteration
-
-    def check_read(self):
-        if self.ptr < self.block.start + self.block.get_header_size() + self.block.size:
-            res = self.fh.read(self.chunksize)
-            offset = self.ptr - self.block.start - self.block.get_header_size()
-            self.ptr += self.chunksize
-            return self.block, offset, res
-        return None
-
 
 class BlockStructureOrderedDataIO(object):
     def __init__(self, block_structure, blocksize=1024):
@@ -63,6 +21,7 @@ class BlockStructureOrderedDataIO(object):
 
             if not can_fit:
                last_block = self.block_structure.add_block(fh, self.blocksize)
+               can_fit = last_block.size - last_block.next_empty
 
             cur_size = min(can_fit, data_left)
             cur_data = data[data_pos:data_pos + cur_size]
@@ -87,14 +46,18 @@ class BlockStructureOrderedDataIO(object):
             yield b
 
     def iterbytes(self, fh, block, ptr):
+        fh.seek(ptr)
         while True:
-            if ptr < block.start + block.get_header_size() + block.size:
+            start = block.start + block.get_header_size()
+            if start <= ptr < start + block.next_empty:
                 yield fh.read(1)
-            if block.next == -1:
-                break
+                ptr += 1
+            else:
+                if block.next == -1:
+                    break
 
-            block = Block.read_block(fh, block.next)
-            ptr = block.start + block.get_header_size()
+                block = Block.read_block(fh, block.next)
+                ptr = block.start + block.get_header_size()
 
 
 class Block(object):
@@ -141,7 +104,7 @@ class Block(object):
         """
         Writes data at the `position`, but doesn't update self.next_empty.
         """
-        if position < 0 or position + len(data) >= self.size:
+        if position < 0 or position + len(data) > self.size:
             raise PyDBInternalError("Invalid position to write in.")
         fh.seek(self.start + self.get_header_size() + position)
         fh.write(data)

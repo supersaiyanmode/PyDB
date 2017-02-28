@@ -3,7 +3,7 @@ import os
 import pytest
 
 from PyDB.structure.blocks import BlockStructure, Block, MultiBlockStructure
-from PyDB.structure.blocks import BlockDataIterator
+from PyDB.structure.blocks import BlockStructureOrderedDataIO
 from PyDB.utils import bytes_to_ints, bytes_to_int, int_to_bytes
 from PyDB.exceptions import PyDBIterationError, PyDBInternalError
 
@@ -74,49 +74,6 @@ class TestBlockStructure(FileTest):
         with pytest.raises(PyDBInternalError):
             BlockStructure(self.f)
 
-    def test_write_data(self):
-        bs = BlockStructure(self.f, block_size=16, initialize=True)
-        block = bs.add_block(self.f, 16, fill=b'\x00')
-        block.write_data(self.f, 4, b'\x03\x05')
-        self.reopen_file()
-        bs2 = BlockStructure(self.f)
-        got = [bytes_to_int(x[2]) for x in BlockDataIterator(self.f, bs2.blocks[0], 4)]
-        expected = [-1, -1, -1, -1, 0, 50659328, 0, 0] #50659328 == \x03\x05\x00\x00
-        assert expected == got
-
-        with pytest.raises(PyDBInternalError):
-            bs2.blocks[0].write_data(self.f, -1, b'')
-
-        bs2.blocks[0].write_data(self.f, 10, b'\x00'*5)
-        with pytest.raises(PyDBInternalError):
-            bs2.blocks[0].write_data(self.f, 10, b'\x00'*6)
-
-class TestDataIterator(FileTest):
-    def test_data_presence(self):
-        bs = BlockStructure(self.f, block_size=16, initialize=True)
-        bs.add_block(self.f, 16, fill=b'\x00\x00\x00\x10')
-        bs.add_block(self.f, 16, after=bs.blocks[0],
-                fill=b'\x00\x00\x00\x20')
-        self.reopen_file()
-        bs2 = BlockStructure(self.f)
-        got = [bytes_to_int(x[2]) for x in BlockDataIterator(self.f, bs2.blocks[0], 4)]
-        expected = [-1, -1, -1, -1, 32, 32, 32, 32, 16, 16, 16, 16]
-
-        assert expected == got
-
-    def test_bad_chunksize(self):
-        bs = BlockStructure(self.f, block_size=48, initialize=True)
-        bs.add_block(self.f, 16, fill=b'\x00\x00\x00\x10')
-        self.reopen_file()
-
-        bs2 = BlockStructure(self.f)
-
-        with pytest.raises(PyDBIterationError):
-            list(BlockDataIterator(self.f, bs2.blocks[0], chunksize=10))
-
-        with pytest.raises(PyDBIterationError):
-            list(BlockDataIterator(self.f, bs2.blocks[0], chunksize=3))
-
 class TestMultiBlockStructure(FileTest):
     def test_intialize(self):
         mbs = MultiBlockStructure(self.f, initialize=True, block_size=16)
@@ -153,5 +110,38 @@ class TestMultiBlockStructure(FileTest):
             Block.MAGIC_VALUE, 16, -1, 144, 0,
             -1, -1, -1, -1,
         ]
+        assert expected == got
+
+
+class TestDataIterator(FileTest):
+    def test_basic_data_io(self):
+        msg = "Basic test."
+        bs = BlockStructure(self.f, block_size=16, initialize=True)
+        io = BlockStructureOrderedDataIO(bs)
+
+        io.append_data(self.f, msg.encode())
+        self.f.flush()
+
+        self.reopen_file()
+        bs2 = BlockStructure(self.f)
+        io2 = BlockStructureOrderedDataIO(bs2)
+        got = b"".join(BlockStructureOrderedDataIO(bs2).iterdata(self.f, chunk_size=1))
+        expected = msg.encode()
+        assert expected == got
+
+    def test_auto_extension(self):
+        msg = "This is an advanced test where multiple blocks will be dynamically added " +\
+                "to the structure."
+        bs = BlockStructure(self.f, block_size=16, initialize=True)
+        io = BlockStructureOrderedDataIO(bs)
+
+        io.append_data(self.f, msg.encode())
+        self.f.flush()
+
+        self.reopen_file()
+        bs2 = BlockStructure(self.f)
+        io2 = BlockStructureOrderedDataIO(bs2)
+        got = b"".join(BlockStructureOrderedDataIO(bs2).iterdata(self.f, chunk_size=1))
+        expected = msg.encode()
         assert expected == got
 

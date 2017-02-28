@@ -23,9 +23,9 @@ def bytes_to_ints(val):
 def byte_chunker(iterator, chunk_size=1):
     try:
         while True:
-            res = []
+            res = b''
             for _ in range(chunk_size):
-                res.append(next(iterator))
-            yield bytes(res)
+                res += next(iterator)
+            yield res
     except StopIteration:
         pass
