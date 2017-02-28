@@ -47,6 +47,36 @@ class BlockDataIterator(object):
             return self.block, offset, res
         return None
 
+
+class BlockStructureOrderedDataIO(object):
+    def __init__(self, block_structure, blocksize=1024):
+        self.block_structure = block_structure
+        self.blocksize = blocksize
+
+    def append_data(self, data):
+        last_block = self.block_structure.blocks[-1]
+
+        data_pos = 0
+        data_left = len(data)
+        while data_left:
+            can_fit = last_block.size - last_block.next_empty
+
+            if not can_fit:
+               last_block = self.block_structure.add_block(fh, self.blocksize)
+
+            cur_size = min(can_fit, data_left)
+            cur_data = data[data_pos:data_pos + cur_size]
+            last_block.write_data(fh, last_block.next_empty, cur_data)
+
+            last_block.next_empty += cur_size
+            last_block.write_header(fh)
+            data_left -= cur_size
+            data_pos += cur_size
+
+    def iterdata(self, fh, offset=0, chunksize=1):
+        pass
+
+
 class Block(object):
     """
     | MAGIC | SIZE | NEXT | PREV | NEXT_EMPTY | DATA... |
