@@ -157,7 +157,7 @@ class TestDataIterator(FileTest):
         bs = BlockStructure(self.f, block_size=16, initialize=True)
         io = BlockStructureOrderedDataIO(bs)
 
-        io.append_data(self.f, msg.encode())
+        io.append(self.f, msg.encode())
         self.f.flush()
 
         self.reopen_file()
@@ -173,7 +173,7 @@ class TestDataIterator(FileTest):
         bs = BlockStructure(self.f, block_size=16, initialize=True)
         io = BlockStructureOrderedDataIO(bs)
 
-        io.append_data(self.f, msg.encode())
+        io.append(self.f, msg.encode())
         self.f.flush()
 
         self.reopen_file()

@@ -11,7 +11,7 @@ class BlockStructureOrderedDataIO(object):
         self.block_structure = block_structure
         self.blocksize = blocksize
 
-    def append_data(self, fh, data):
+    def append(self, fh, data):
         last_block = self.block_structure.blocks[-1]
 
         data_pos = 0
@@ -201,7 +201,7 @@ class MultiBlockStructure(object):
         pos = fh.seek(0, os.SEEK_END)
         block_structure = BlockStructure(fh, position=pos, initialize=True,
                 block_size=block_size, fill=fill)
-        self.header.append_data(fh, int_to_bytes(pos))
+        self.header.append(fh, int_to_bytes(pos))
         fh.flush()
         return block_structure
 
