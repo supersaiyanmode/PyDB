@@ -21,6 +21,43 @@ class FileTest(object):
         self.f.close()
         self.f = open(self.file_path, "rb+")
 
+
+class TestBlock(FileTest):
+    def test_fill(self):
+        b = Block(0, 16, -1, -1, 0)
+        b.write_header(self.f)
+        b.fill_data(self.f, b'\xff')
+        self.reopen_file()
+
+        content = self.f.read()
+        got = bytes_to_ints(content)
+        expected = [
+            Block.MAGIC_VALUE, 16, -1, -1, 0,
+            -1, -1, -1, -1
+        ]
+
+    def test_non_aligned_fill(self):
+        b = Block(0, 16, -1, -1, 0)
+        b.write_header(self.f)
+        with pytest.raises(PyDBInternalError):
+            b.fill_data(self.f, b'\xff'*3)
+
+    def test_raw_write(self):
+        b = Block(0, 16, -1, -1, 0)
+        b.write_header(self.f)
+        b.fill_data(self.f, b'\xff')
+        b.write_data(self.f, 3, b'\x3C')
+        self.reopen_file()
+
+        content = self.f.read()
+        got = bytes_to_ints(content)
+        expected = [
+            Block.MAGIC_VALUE, 16, -1, -1, 0,
+            -196, -1, -1, -1
+        ]
+        assert expected == got
+
+
 class TestBlockStructure(FileTest):
     def test_initialization(self):
         bs = BlockStructure(self.f, block_size=16, initialize=True)
@@ -73,6 +110,7 @@ class TestBlockStructure(FileTest):
         self.reopen_file()
         with pytest.raises(PyDBInternalError):
             BlockStructure(self.f)
+
 
 class TestMultiBlockStructure(FileTest):
     def test_intialize(self):
