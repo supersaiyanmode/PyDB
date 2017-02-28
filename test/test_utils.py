@@ -1,6 +1,7 @@
 from PyDB.utils import custom_import
 from PyDB.utils import get_qualified_name
 from PyDB.utils import int_to_bytes, bytes_to_int, bytes_to_ints
+from PyDB.utils import byte_chunker
 
 import pytest
 
@@ -27,3 +28,7 @@ def test_bytes_to_int():
 
 def test_bytes_to_ints():
     assert bytes_to_ints(b'){\x8a\x83\xdc\x03O\x8e') == [695962243, -603762802]
+
+def test_chunker1():
+    arr = b'\x02\xFA\x34\xA0\x9B\x78\x09\x88\x1C'
+    assert list(byte_chunker(iter(arr), 3)) == [arr[:3], arr[3:6], arr[6:]]

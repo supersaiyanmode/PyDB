@@ -19,3 +19,13 @@ def bytes_to_int(val):
 
 def bytes_to_ints(val):
     return [bytes_to_int(val[x:x+4]) for x in range(0, len(val), 4)]
+
+def byte_chunker(iterator, chunk_size=1):
+    try:
+        while True:
+            res = []
+            for _ in range(chunk_size):
+                res.append(next(iterator))
+            yield bytes(res)
+    except StopIteration:
+        pass
