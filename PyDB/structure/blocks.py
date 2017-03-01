@@ -185,9 +185,9 @@ class BlockStructure(object):
         return pos
 
 class MultiBlockStructure(object):
-    def __init__(self, fh, block_size=1024, initialize=False, fill=None):
+    def __init__(self, fh, block_size=1024, initialize=False):
        self.header_structure = BlockStructure(fh, block_size=block_size,
-               initialize=initialize, fill=fill)
+               initialize=initialize, fill=int_to_bytes(-1, 4))
        self.header = BlockStructureOrderedDataIO(self.header_structure)
        self.super_blocks = self.read_structure(fh, self.header_structure)
 
