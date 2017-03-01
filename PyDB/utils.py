@@ -29,3 +29,6 @@ def byte_chunker(iterator, chunk_size=1):
             yield res
     except StopIteration:
         pass
+
+def bytes_to_gen(barr):
+    return (bytes([x]) for x in barr)
