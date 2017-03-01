@@ -219,7 +219,7 @@ class TestDataIterator(FileTest):
         io.write(self.f, 0, str_to_byte_gen(msg))
 
         msg2 = "definitely a not-so-basic test."
-        io.write(self.f, 8, str_to_byte_gen(msg2))
+        io.write(self.f, 21, str_to_byte_gen(msg2))
         self.f.flush()
 
         assert len(bs.blocks) == 6
@@ -229,6 +229,6 @@ class TestDataIterator(FileTest):
         io2 = BlockStructureOrderedDataIO(bs2)
         got = b"".join(BlockStructureOrderedDataIO(bs2).iterdata(self.f, chunk_size=1))
         expected = "This is definitely a not-so-basic test.".encode()
-        expected = (msg[:8] + msg2 + msg[8 + len(msg2):]).encode()
+        expected = (msg[:21] + msg2 + msg[21 + len(msg2):]).encode()
         assert expected == got
 
