@@ -111,7 +111,7 @@ class Block(object):
 
     def __repr__(self):
         return ("Block(start={s.start}, size={s.size}, nxt={s.next}, "
-                "prev={s.prev})").format(s=self)
+                "prev={s.prev}, next_empty={s.next_empty})").format(s=self)
 
     @classmethod
     def read_block(cls, fh, start):
