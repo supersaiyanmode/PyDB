@@ -222,7 +222,7 @@ class TestDataIterator(FileTest):
         io.write(self.f, 8, str_to_byte_gen(msg2))
         self.f.flush()
 
-        assert len(bs.blocks) == 2
+        assert len(bs.blocks) == 6
 
         self.reopen_file()
         bs2 = BlockStructure(self.f)
