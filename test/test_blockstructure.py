@@ -21,6 +21,8 @@ class FileTest(object):
         self.f.close()
         self.f = open(self.file_path, "rb+")
 
+def str_to_byte_gen(msg):
+    return (bytes([x]) for x in msg.encode())
 
 class TestBlock(FileTest):
     def test_fill(self):
@@ -157,8 +159,9 @@ class TestDataIterator(FileTest):
         bs = BlockStructure(self.f, block_size=16, initialize=True)
         io = BlockStructureOrderedDataIO(bs)
 
-        io.append(self.f, msg.encode())
+        io.append(self.f, str_to_byte_gen(msg))
         self.f.flush()
+        self.f.seek(0)
 
         self.reopen_file()
         bs2 = BlockStructure(self.f)
@@ -171,15 +174,61 @@ class TestDataIterator(FileTest):
         msg = "This is an advanced test where multiple blocks will be dynamically added " +\
                 "to the structure."
         bs = BlockStructure(self.f, block_size=16, initialize=True)
-        io = BlockStructureOrderedDataIO(bs)
+        io = BlockStructureOrderedDataIO(bs, blocksize=16)
 
-        io.append(self.f, msg.encode())
+        io.append(self.f, str_to_byte_gen(msg))
         self.f.flush()
+        assert len(bs.blocks) == len(msg) // 16 + 1
 
         self.reopen_file()
         bs2 = BlockStructure(self.f)
         io2 = BlockStructureOrderedDataIO(bs2)
         got = b"".join(BlockStructureOrderedDataIO(bs2).iterdata(self.f, chunk_size=1))
         expected = msg.encode()
+        assert expected == got
+
+    def test_write_with_truncate(self):
+        msg = "This is a not-so-basic test. I need to fill about one more block." +\
+                " And I'm out of ideas."
+        bs = BlockStructure(self.f, block_size=16, initialize=True)
+        io = BlockStructureOrderedDataIO(bs, blocksize=16)
+        io.write(self.f, 0, str_to_byte_gen(msg))
+        self.f.flush()
+
+        assert len(bs.blocks) == 6
+
+        msg2 = "definitely a not-so-basic test."
+        io.write(self.f, 8, str_to_byte_gen(msg2), truncate=True)
+        self.f.flush()
+
+        assert len(bs.blocks) == 3
+
+        self.reopen_file()
+        bs2 = BlockStructure(self.f)
+        io2 = BlockStructureOrderedDataIO(bs2)
+        got = b"".join(BlockStructureOrderedDataIO(bs2).iterdata(self.f, chunk_size=1))
+        expected = "This is definitely a not-so-basic test.".encode()
+        assert expected == got
+
+    def test_write_without_truncate(self):
+        msg = "This is a not-so-basic test. I need to fill about one more block." +\
+                " And I'm out of ideas."
+        bs = BlockStructure(self.f, block_size=16, initialize=True)
+        io = BlockStructureOrderedDataIO(bs, blocksize=16)
+
+        io.write(self.f, 0, str_to_byte_gen(msg))
+
+        msg2 = "definitely a not-so-basic test."
+        io.write(self.f, 8, str_to_byte_gen(msg2))
+        self.f.flush()
+
+        assert len(bs.blocks) == 2
+
+        self.reopen_file()
+        bs2 = BlockStructure(self.f)
+        io2 = BlockStructureOrderedDataIO(bs2)
+        got = b"".join(BlockStructureOrderedDataIO(bs2).iterdata(self.f, chunk_size=1))
+        expected = "This is definitely a not-so-basic test.".encode()
+        expected = (msg[:8] + msg2 + msg[8 + len(msg2):]).encode()
         assert expected == got
 

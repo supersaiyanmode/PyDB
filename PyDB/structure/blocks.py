@@ -1,9 +1,10 @@
 import os
-from itertools import takewhile
+from itertools import takewhile, islice
 
 from PyDB.exceptions import PyDBOutOfSpaceError, PyDBIterationError
 from PyDB.exceptions import PyDBInternalError
 from PyDB.utils import int_to_bytes, bytes_to_int, byte_chunker
+from PyDB.utils import bytes_to_gen
 
 
 class BlockStructureOrderedDataIO(object):
@@ -13,33 +14,41 @@ class BlockStructureOrderedDataIO(object):
 
     def append(self, fh, data):
         last_block = self.block_structure.blocks[-1]
+        offset = sum(x.size for x in self.block_structure.blocks[:-1])
+        offset += last_block.next_empty
+        return self.write(fh, offset, data, truncate=True)
 
-        data_pos = 0
-        data_left = len(data)
-        while data_left:
-            can_fit = last_block.size - last_block.next_empty
+    def write(self, fh, pos, data, truncate=False):
+        cur_block, block_offset = self.find_offset(fh, pos)
 
-            if not can_fit:
-               last_block = self.block_structure.add_block(fh, self.blocksize)
-               can_fit = last_block.size - last_block.next_empty
+        while True:
+            can_fit = cur_block.size - block_offset
 
-            cur_size = min(can_fit, data_left)
-            cur_data = data[data_pos:data_pos + cur_size]
-            last_block.write_data(fh, last_block.next_empty, cur_data)
+            if can_fit <= 0:
+                if cur_block.next == -1:
+                    cur_block = self.block_structure.add_block(fh, self.blocksize)
+                else:
+                    cur_block = self.block_structure.next_block(cur_block)
+                block_offset = 0
+                can_fit = cur_block.size - block_offset
 
-            last_block.next_empty += cur_size
-            last_block.write_header(fh)
-            data_left -= cur_size
-            data_pos += cur_size
+            cur_data = b''.join(islice(data, 0, can_fit))
+            cur_size = len(cur_data)
+            if cur_data:
+                cur_block.write_data(fh, block_offset, cur_data)
+                block_offset += cur_size
+                if truncate or cur_block.next_empty < block_offset:
+                    cur_block.next_empty = block_offset
+                    cur_block.write_header(fh)
+            else:
+                if truncate:
+                    cur_block.next_empty = block_offset + cur_size
+                    cur_block.write_header(fh)
+                    self.block_structure.truncate_blocks(fh, after=cur_block)
+                break
 
     def iterdata(self, fh, offset=0, chunk_size=1):
-        #Seek to correct block
-        for cur_block in self.block_structure.blocks:
-            if offset < cur_block.size:
-                break
-        else:
-            raise PyDBIterationError("Invalid offset.")
-
+        cur_block, offset = self.find_offset(fh, offset)
         ptr = cur_block.start + cur_block.get_header_size() + offset
         byte_data = self.iterbytes(fh, cur_block, ptr)
         for b in byte_chunker(byte_data, chunk_size=chunk_size):
@@ -59,6 +68,12 @@ class BlockStructureOrderedDataIO(object):
                 block = Block.read_block(fh, block.next)
                 ptr = block.start + block.get_header_size()
 
+    def find_offset(self, fh, offset):
+        for cur_block in self.block_structure.blocks:
+            if offset < cur_block.size:
+                return cur_block, offset
+            offset -= cur_block.size
+        raise PyDBIterationError("Invalid offset.")
 
 class Block(object):
     """
@@ -151,6 +166,26 @@ class BlockStructure(object):
 
         return blocks
 
+    def next_block(self, block):
+        pos = next(i for i, x in enumerate(self.blocks) if block is x)
+        return self.blocks[pos+1]
+
+    def truncate_blocks(self, fh, after=None, before=None):
+        to_remove = []
+        if after and not before:
+            pos = next(i for i, x in enumerate(self.blocks) if after is x)
+            to_remove += self.blocks[pos+1:]
+            self.blocks = self.blocks[:pos+1]
+        elif not after and before:
+            raise NotImplementedError
+
+        for block in to_remove:
+            block.next = -1
+            block.prev = -1
+            block.write_header(fh)
+        after.next = -1
+        after.write_header(fh)
+
     def add_block(self, fh, block_size, after=None, fill=None):
         if fill is None:
             fill = int_to_bytes(-1, 4)
@@ -201,7 +236,7 @@ class MultiBlockStructure(object):
         pos = fh.seek(0, os.SEEK_END)
         block_structure = BlockStructure(fh, position=pos, initialize=True,
                 block_size=block_size, fill=fill)
-        self.header.append(fh, int_to_bytes(pos))
+        self.header.append(fh, bytes_to_gen(int_to_bytes(pos)))
         fh.flush()
         return block_structure
 
