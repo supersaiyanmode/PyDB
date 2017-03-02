@@ -11,6 +11,9 @@ class PyDBTypeError(PyDBError):
                 .format(expected.__name__, val.__class__.__name__)
         super().__init__(msg)
 
+class PyDBValueError(PyDBError):
+    def __init__(self, msg):
+        super().__init__(msg)
 
 class PyDBTypeConstraintError(PyDBError):
     def __init__(self, msg):
