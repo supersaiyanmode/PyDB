@@ -1,9 +1,20 @@
 import pytest
 
-from PyDB.datatypes import IntegerType
-from PyDB.datatypes import StringType
+from PyDB.datatypes import IntegerType, StringType
+from PyDB.datatypes import TypeHeader
 from PyDB.exceptions import PyDBTypeError, PyDBValueError
-from PyDB.utils import int_to_bytes, bytes_to_int
+from PyDB.utils import int_to_bytes, bytes_to_int, bytes_to_gen
+
+
+class TestTypeHeader(object):
+    def test_encode_header(self):
+        assert TypeHeader(True, 0).encode_header() == int_to_bytes(1, 1) + int_to_bytes(0, 4)
+        assert TypeHeader(False, 5).encode_header() == int_to_bytes(0, 1) + int_to_bytes(5, 4)
+
+    def test_decode_header(self):
+        th = TypeHeader.decode_header(bytes_to_gen(b'\x00\x00\x00\x04\xB3'))
+        assert th.null == 0
+        assert th.size == 1203
 
 
 class TestGenericType(object):
@@ -51,7 +62,39 @@ class TestGenericType(object):
         assert IntegerType().get_header(0).null == 0
         assert IntegerType().get_header(None).null == 1
 
-    def test_encode_header(self):
-        assert IntegerType().encode_header(0) == int_to_bytes(0, 1)
-        assert IntegerType().encode_header(None) == int_to_bytes(1, 1)
+
+class TestIntegerType(object):
+    def test_encode(self):
+        res = IntegerType().encode(56)
+        assert b'\x00\x00\x00\x00\x04\x00\x00\x008' == res
+
+    def test_encode_null(self):
+        res = IntegerType(required=True).encode(None)
+        assert b'\x01\x00\x00\x00\x00' == res
+
+    def test_decode(self):
+        barr = bytes_to_gen(b'\x00\x00\x00\x00\x04\x00\x00\x04\x84')
+        assert IntegerType(required=True).decode(barr) == 1156
+
+    def test_decode_null(self):
+        barr = bytes_to_gen(b'\x01\x00\x00\x00\x00')
+        assert IntegerType().decode(barr) is None
+
+
+class TestStringType(object):
+    def test_encode(self):
+        res = StringType(16).encode("test everything.")
+        assert b'\x00\x00\x00\x00\x10test everything.' == res
+
+    def test_encode_null(self):
+        res = StringType(16).encode(None)
+        assert b'\x01\x00\x00\x00\x00' == res
+
+    def test_decode(self):
+        barr = bytes_to_gen(b'\x00\x00\x00\x00\x09test func')
+        assert StringType(16).decode(barr) == 'test func'
+
+    def test_decode_null(self):
+        barr = bytes_to_gen(b'\x01\x00\x00\x00\x00')
+        assert StringType(16).decode(barr) is None
 

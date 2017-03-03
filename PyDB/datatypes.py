@@ -1,3 +1,5 @@
+from itertools import islice
+
 from PyDB.utils import int_to_bytes, bytes_to_int
 
 from PyDB.exceptions import PyDBTypeError, PyDBValueError
@@ -9,8 +11,26 @@ class DefaultDummyType:
 DEFAULT_VALUE = DefaultDummyType()
 
 class TypeHeader(object):
-    def __init__(self, null):
+    SIZE_NULL = 1
+    SIZE_SIZE = 4
+
+    SIZE_TOTAL = SIZE_NULL + SIZE_SIZE
+
+    def __init__(self, null, size):
         self.null = int(null)
+        self.size = size
+
+    def encode_header(self):
+        res = int_to_bytes(self.null, self.SIZE_NULL)
+        res += int_to_bytes(self.size, self.SIZE_SIZE)
+        return res
+
+    @classmethod
+    def decode_header(cls, barr):
+        arr = b''.join(islice(barr, 0, TypeHeader.SIZE_TOTAL))
+        null = bytes_to_int(arr[0:cls.SIZE_NULL])
+        size = bytes_to_int(arr[cls.SIZE_NULL: cls.SIZE_NULL + cls.SIZE_SIZE])
+        return TypeHeader(null, size)
 
 
 class GenericType(object):
@@ -33,41 +53,58 @@ class GenericType(object):
             return self.default
         return val
 
+    def check_value(self, val):
+        self.check_required(val)
+        self.check_type(val)
+        self.check_constraints(val)
+
+    def check_type(self, val):
+        if not isinstance(val, self.get_type()):
+            raise PyDBTypeError(self.get_type(), val)
+
     def check_required(self, val):
         if val is None and self.required:
             raise PyDBValueError("Value is NULL for a required attribute.")
 
+    def check_constraints(self, val):
+        pass
+
     def get_header(self, val):
-        return TypeHeader(val is None)
+        return TypeHeader(val is None, 0)
 
-    def encode_header(self, val):
+    def encode(self, val):
         header = self.get_header(val)
-        return int_to_bytes(header.null, 1)
+        if header.null == 0:
+            data = self.encode_value(val)
+            header.size = len(data)
+        else:
+            data = b''
+            header.size = 0
+        return header.encode_header() + data
 
-    def decode_header(self, barr):
-        return TypeHeader(bytes_to_int(barr[:1]))
+    def decode(self, gen):
+        th = TypeHeader.decode_header(gen)
+        if th.null:
+            return None
+        arr = b''.join((islice(gen, 0, th.size)))
+        val = self.decode_value(arr)
+        self.check_value(val)
+        return val
 
 
 class IntegerType(GenericType):
-    def __init__(self, **kwargs):
+    def __init__(self, size=4, **kwargs):
         super().__init__(**kwargs)
-
-    def check_value(self, val):
-        self.check_required(val)
-        if not isinstance(val, int):
-            raise PyDBTypeError(int, val)
+        self.size = size
 
     def get_type(self):
         return int
 
-    def encode(self, val):
-        return struct.pack(">I", val)
+    def encode_value(self, val):
+        return int_to_bytes(val, self.size)
 
-    def decode(self, val):
-        return struct.unpack(">I", val)
-
-    def get_binary_size(self):
-        return 4
+    def decode_value(self, val):
+        return bytes_to_int(val)
 
 
 class StringType(GenericType):
@@ -75,21 +112,17 @@ class StringType(GenericType):
         super().__init__(**kwargs)
         self.max_length = size
 
-    def check_value(self, val):
+    def check_constraints(self, val):
         if len(val) >= self.max_length:
             raise PyDBTypeConstraintError("String size exceeds {}".format(
                 self.max_length))
-        return isinstance(val, str)
 
-    def get_type(self, val):
+    def get_type(self):
         return str
 
-    def encode(self, val):
+    def encode_value(self, val):
         return str.encode(val)
 
-    def decode(self, val):
-        return bytearray.decode(val)
-
-    def get_binary_size(self):
-        return self.max_length
+    def decode_value(self, val):
+        return bytes.decode(val, 'ascii')
 
