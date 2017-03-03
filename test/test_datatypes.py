@@ -2,7 +2,7 @@ import pytest
 
 from PyDB.datatypes import IntegerType, StringType
 from PyDB.datatypes import TypeHeader
-from PyDB.exceptions import PyDBTypeError, PyDBValueError
+from PyDB.exceptions import PyDBTypeError, PyDBValueError, PyDBTypeConstraintError
 from PyDB.utils import int_to_bytes, bytes_to_int, bytes_to_gen
 
 
@@ -98,3 +98,6 @@ class TestStringType(object):
         barr = bytes_to_gen(b'\x01\x00\x00\x00\x00')
         assert StringType(16).decode(barr) is None
 
+    def test_constraint(self):
+        with pytest.raises(PyDBTypeConstraintError):
+            StringType(16).check_value("This is a rather long string.")
