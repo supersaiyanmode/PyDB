@@ -1,7 +1,8 @@
 from PyDB.utils import custom_import
 from PyDB.utils import get_qualified_name
 from PyDB.utils import int_to_bytes, bytes_to_int, bytes_to_ints
-from PyDB.utils import byte_chunker, bytes_to_gen
+from PyDB.utils import byte_chunker, bytes_to_gen, gen_to_bytes
+from PyDB.utils import bytes_to_string, string_to_bytes
 
 import pytest
 
@@ -29,6 +30,12 @@ def test_bytes_to_int():
 def test_bytes_to_ints():
     assert bytes_to_ints(b'){\x8a\x83\xdc\x03O\x8e') == [695962243, -603762802]
 
+def test_string_to_bytes():
+    assert string_to_bytes("testing ...") == b'testing ...'
+
+def test_bytes_to_string():
+    assert bytes_to_string(b'testing ...') == 'testing ...'
+
 def test_chunker1():
     msg = b'\x02\xFA\x34\xA0\x9B\x78\x09\x88\x1C'
     arr = bytes_to_gen(msg)
@@ -38,3 +45,9 @@ def test_bytes_to_gen():
     msg = b'\x02\xFA\x34\xA0\x9B\x78\x09\x88\x1C'
     arr = bytes_to_gen(msg)
     assert b''.join(arr) == msg
+
+def test_gen_to_bytes():
+    msg = b'\x02\xFA\x34\xA0\x9B\x78\x09\x88\x1C'
+    arr = bytes_to_gen(msg)
+    assert gen_to_bytes(arr) == msg
+
