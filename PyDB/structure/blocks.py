@@ -26,7 +26,8 @@ class BlockStructureOrderedDataIO(object):
                 self.block_offset = 0
                 can_fit = self.cur_block.size - self.block_offset
 
-            cur_data = b''.join(islice(data, 0, can_fit))
+            cur_data = data[:can_fit]
+            data = data[can_fit:]
             cur_size = len(cur_data)
             if cur_data:
                 self.cur_block.write_data(self.fh, self.block_offset, cur_data)
@@ -233,7 +234,7 @@ class MultiBlockStructure(object):
         pos = fh.seek(0, os.SEEK_END)
         block_structure = BlockStructure(fh, position=pos, initialize=True,
                 block_size=block_size, fill=fill)
-        self.header.write(bytes_to_gen(int_to_bytes(pos)))
+        self.header.write(int_to_bytes(pos))
         fh.flush()
         return block_structure
 

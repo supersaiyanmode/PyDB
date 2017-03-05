@@ -4,7 +4,7 @@ import pytest
 
 from PyDB.structure.blocks import BlockStructure, Block, MultiBlockStructure
 from PyDB.structure.blocks import BlockStructureOrderedDataIO
-from PyDB.utils import bytes_to_ints, bytes_to_int, int_to_bytes
+from PyDB.utils import bytes_to_ints, bytes_to_int, int_to_bytes, string_to_bytes
 from PyDB.exceptions import PyDBIterationError, PyDBInternalError
 from base import FileBasedTest
 
@@ -144,7 +144,7 @@ class TestDataIterator(FileBasedTest):
         bs = BlockStructure(self.f, block_size=16, initialize=True)
         io = BlockStructureOrderedDataIO(self.f, bs)
 
-        io.write(str_to_byte_gen(msg))
+        io.write(string_to_bytes(msg))
         self.f.flush()
         self.f.seek(0)
 
@@ -161,7 +161,7 @@ class TestDataIterator(FileBasedTest):
         bs = BlockStructure(self.f, block_size=16, initialize=True)
         io = BlockStructureOrderedDataIO(self.f, bs, blocksize=16)
 
-        io.write(str_to_byte_gen(msg))
+        io.write(string_to_bytes(msg))
         self.f.flush()
         assert len(bs.blocks) == len(msg) // 16 + 1
 
@@ -177,14 +177,14 @@ class TestDataIterator(FileBasedTest):
                 " And I'm out of ideas."
         bs = BlockStructure(self.f, block_size=16, initialize=True)
         io = BlockStructureOrderedDataIO(self.f, bs, blocksize=16)
-        io.write(str_to_byte_gen(msg))
+        io.write(string_to_bytes(msg))
         self.f.flush()
 
         assert len(bs.blocks) == 6
 
         msg2 = "definitely a not-so-basic test."
         io.seek(8)
-        io.write(str_to_byte_gen(msg2), truncate=True)
+        io.write(string_to_bytes(msg2), truncate=True)
         self.f.flush()
 
         assert len(bs.blocks) == 3
@@ -202,11 +202,11 @@ class TestDataIterator(FileBasedTest):
         bs = BlockStructure(self.f, block_size=16, initialize=True)
         io = BlockStructureOrderedDataIO(self.f, bs, blocksize=16)
 
-        io.write(str_to_byte_gen(msg))
+        io.write(string_to_bytes(msg))
 
         msg2 = "definitely a not-so-basic test."
         io.seek(21)
-        io.write(str_to_byte_gen(msg2))
+        io.write(string_to_bytes(msg2))
         self.f.flush()
 
         assert len(bs.blocks) == 6
