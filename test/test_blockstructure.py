@@ -6,25 +6,10 @@ from PyDB.structure.blocks import BlockStructure, Block, MultiBlockStructure
 from PyDB.structure.blocks import BlockStructureOrderedDataIO
 from PyDB.utils import bytes_to_ints, bytes_to_int, int_to_bytes
 from PyDB.exceptions import PyDBIterationError, PyDBInternalError
+from base import FileBasedTest
 
-class FileTest(object):
-    file_path = "/tmp/block.test"
 
-    def setup(self):
-        self.f = open(self.file_path, "wb+")
-
-    def teardown(self):
-        self.f.close()
-        os.unlink(self.file_path)
-
-    def reopen_file(self):
-        self.f.close()
-        self.f = open(self.file_path, "rb+")
-
-def str_to_byte_gen(msg):
-    return (bytes([x]) for x in msg.encode())
-
-class TestBlock(FileTest):
+class TestBlock(FileBasedTest):
     def test_fill(self):
         b = Block(0, 16, -1, -1, 0)
         b.write_header(self.f)
@@ -60,7 +45,7 @@ class TestBlock(FileTest):
         assert expected == got
 
 
-class TestBlockStructure(FileTest):
+class TestBlockStructure(FileBasedTest):
     def test_initialization(self):
         bs = BlockStructure(self.f, block_size=16, initialize=True)
         self.f.seek(0)
@@ -114,7 +99,7 @@ class TestBlockStructure(FileTest):
             BlockStructure(self.f)
 
 
-class TestMultiBlockStructure(FileTest):
+class TestMultiBlockStructure(FileBasedTest):
     def test_intialize(self):
         mbs = MultiBlockStructure(self.f, initialize=True, block_size=16)
         self.f.seek(0)
@@ -153,7 +138,7 @@ class TestMultiBlockStructure(FileTest):
         assert expected == got
 
 
-class TestDataIterator(FileTest):
+class TestDataIterator(FileBasedTest):
     def test_basic_data_io(self):
         msg = "Basic test."
         bs = BlockStructure(self.f, block_size=16, initialize=True)
