@@ -42,6 +42,11 @@ class BlockStructureOrderedDataIO(object):
                     self.block_structure.truncate_blocks(self.fh, after=self.cur_block)
                 break
 
+    def read(self, size=-1):
+        if size == -1:
+            return b''.join(self.iterdata())
+        return b''.join(islice(self.iterdata(), 0, size))
+
     def seek(self, pos):
         self.cur_block, self.block_offset = self.find_offset(pos)
 

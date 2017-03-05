@@ -214,8 +214,23 @@ class TestDataIterator(FileBasedTest):
         self.reopen_file()
         bs2 = BlockStructure(self.f)
         io2 = BlockStructureOrderedDataIO(self.f, bs2)
-        got = b"".join(BlockStructureOrderedDataIO(self.f, bs2).iterdata(chunk_size=1))
+        got = BlockStructureOrderedDataIO(self.f, bs2).read()
         expected = "This is definitely a not-so-basic test.".encode()
         expected = (msg[:21] + msg2 + msg[21 + len(msg2):]).encode()
+        assert expected == got
+
+    def test_read(self):
+        msg = "Basic test."
+        bs = BlockStructure(self.f, block_size=16, initialize=True)
+        io = BlockStructureOrderedDataIO(self.f, bs)
+
+        io.write(string_to_bytes(msg))
+        self.f.flush()
+
+        self.reopen_file()
+        bs2 = BlockStructure(self.f)
+        io2 = BlockStructureOrderedDataIO(self.f, bs2)
+        got = BlockStructureOrderedDataIO(self.f, bs2).read(6)
+        expected = msg.encode()[:6]
         assert expected == got
 
