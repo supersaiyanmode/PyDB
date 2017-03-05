@@ -157,16 +157,16 @@ class TestDataIterator(FileTest):
     def test_basic_data_io(self):
         msg = "Basic test."
         bs = BlockStructure(self.f, block_size=16, initialize=True)
-        io = BlockStructureOrderedDataIO(bs)
+        io = BlockStructureOrderedDataIO(self.f, bs)
 
-        io.append(self.f, str_to_byte_gen(msg))
+        io.write(str_to_byte_gen(msg))
         self.f.flush()
         self.f.seek(0)
 
         self.reopen_file()
         bs2 = BlockStructure(self.f)
-        io2 = BlockStructureOrderedDataIO(bs2)
-        got = b"".join(BlockStructureOrderedDataIO(bs2).iterdata(self.f, chunk_size=1))
+        io2 = BlockStructureOrderedDataIO(self.f, bs2)
+        got = b"".join(BlockStructureOrderedDataIO(self.f, bs2).iterdata(chunk_size=1))
         expected = msg.encode()
         assert expected == got
 
@@ -174,16 +174,16 @@ class TestDataIterator(FileTest):
         msg = "This is an advanced test where multiple blocks will be dynamically added " +\
                 "to the structure."
         bs = BlockStructure(self.f, block_size=16, initialize=True)
-        io = BlockStructureOrderedDataIO(bs, blocksize=16)
+        io = BlockStructureOrderedDataIO(self.f, bs, blocksize=16)
 
-        io.append(self.f, str_to_byte_gen(msg))
+        io.write(str_to_byte_gen(msg))
         self.f.flush()
         assert len(bs.blocks) == len(msg) // 16 + 1
 
         self.reopen_file()
         bs2 = BlockStructure(self.f)
-        io2 = BlockStructureOrderedDataIO(bs2)
-        got = b"".join(BlockStructureOrderedDataIO(bs2).iterdata(self.f, chunk_size=1))
+        io2 = BlockStructureOrderedDataIO(self.f, bs2)
+        got = b"".join(BlockStructureOrderedDataIO(self.f, bs2).iterdata(chunk_size=1))
         expected = msg.encode()
         assert expected == got
 
@@ -191,22 +191,23 @@ class TestDataIterator(FileTest):
         msg = "This is a not-so-basic test. I need to fill about one more block." +\
                 " And I'm out of ideas."
         bs = BlockStructure(self.f, block_size=16, initialize=True)
-        io = BlockStructureOrderedDataIO(bs, blocksize=16)
-        io.write(self.f, 0, str_to_byte_gen(msg))
+        io = BlockStructureOrderedDataIO(self.f, bs, blocksize=16)
+        io.write(str_to_byte_gen(msg))
         self.f.flush()
 
         assert len(bs.blocks) == 6
 
         msg2 = "definitely a not-so-basic test."
-        io.write(self.f, 8, str_to_byte_gen(msg2), truncate=True)
+        io.seek(8)
+        io.write(str_to_byte_gen(msg2), truncate=True)
         self.f.flush()
 
         assert len(bs.blocks) == 3
 
         self.reopen_file()
         bs2 = BlockStructure(self.f)
-        io2 = BlockStructureOrderedDataIO(bs2)
-        got = b"".join(BlockStructureOrderedDataIO(bs2).iterdata(self.f, chunk_size=1))
+        io2 = BlockStructureOrderedDataIO(self.f, bs2)
+        got = b"".join(BlockStructureOrderedDataIO(self.f, bs2).iterdata(chunk_size=1))
         expected = "This is definitely a not-so-basic test.".encode()
         assert expected == got
 
@@ -214,20 +215,21 @@ class TestDataIterator(FileTest):
         msg = "This is a not-so-basic test. I need to fill about one more block." +\
                 " And I'm out of ideas."
         bs = BlockStructure(self.f, block_size=16, initialize=True)
-        io = BlockStructureOrderedDataIO(bs, blocksize=16)
+        io = BlockStructureOrderedDataIO(self.f, bs, blocksize=16)
 
-        io.write(self.f, 0, str_to_byte_gen(msg))
+        io.write(str_to_byte_gen(msg))
 
         msg2 = "definitely a not-so-basic test."
-        io.write(self.f, 21, str_to_byte_gen(msg2))
+        io.seek(21)
+        io.write(str_to_byte_gen(msg2))
         self.f.flush()
 
         assert len(bs.blocks) == 6
 
         self.reopen_file()
         bs2 = BlockStructure(self.f)
-        io2 = BlockStructureOrderedDataIO(bs2)
-        got = b"".join(BlockStructureOrderedDataIO(bs2).iterdata(self.f, chunk_size=1))
+        io2 = BlockStructureOrderedDataIO(self.f, bs2)
+        got = b"".join(BlockStructureOrderedDataIO(self.f, bs2).iterdata(chunk_size=1))
         expected = "This is definitely a not-so-basic test.".encode()
         expected = (msg[:21] + msg2 + msg[21 + len(msg2):]).encode()
         assert expected == got

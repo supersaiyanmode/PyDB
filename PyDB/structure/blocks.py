@@ -8,67 +8,64 @@ from PyDB.utils import bytes_to_gen
 
 
 class BlockStructureOrderedDataIO(object):
-    def __init__(self, block_structure, blocksize=1024):
+    def __init__(self, fh, block_structure, blocksize=1024):
+        self.fh = fh
         self.block_structure = block_structure
         self.blocksize = blocksize
+        self.cur_block, self.block_offset = self.find_offset(0)
 
-    def append(self, fh, data):
-        last_block = self.block_structure.blocks[-1]
-        offset = sum(x.size for x in self.block_structure.blocks[:-1])
-        offset += last_block.next_empty
-        return self.write(fh, offset, data, truncate=True)
-
-    def write(self, fh, pos, data, truncate=False):
-        cur_block, block_offset = self.find_offset(fh, pos)
-
+    def write(self, data, truncate=False):
         while True:
-            can_fit = cur_block.size - block_offset
+            can_fit = self.cur_block.size - self.block_offset
 
             if can_fit <= 0:
-                if cur_block.next == -1:
-                    cur_block = self.block_structure.add_block(fh, self.blocksize)
+                if self.cur_block.next == -1:
+                    self.cur_block = self.block_structure.add_block(self.fh, self.blocksize)
                 else:
-                    cur_block = self.block_structure.next_block(cur_block)
-                block_offset = 0
-                can_fit = cur_block.size - block_offset
+                    self.cur_block = self.block_structure.next_block(self.cur_block)
+                self.block_offset = 0
+                can_fit = self.cur_block.size - self.block_offset
 
             cur_data = b''.join(islice(data, 0, can_fit))
             cur_size = len(cur_data)
             if cur_data:
-                cur_block.write_data(fh, block_offset, cur_data)
-                block_offset += cur_size
-                if truncate or cur_block.next_empty < block_offset:
-                    cur_block.next_empty = block_offset
-                    cur_block.write_header(fh)
+                self.cur_block.write_data(self.fh, self.block_offset, cur_data)
+                self.block_offset += cur_size
+                if truncate or self.cur_block.next_empty < self.block_offset:
+                    self.cur_block.next_empty = self.block_offset
+                    self.cur_block.write_header(self.fh)
             else:
                 if truncate:
-                    cur_block.next_empty = block_offset + cur_size
-                    cur_block.write_header(fh)
-                    self.block_structure.truncate_blocks(fh, after=cur_block)
+                    self.cur_block.next_empty = self.block_offset + cur_size
+                    self.cur_block.write_header(self.fh)
+                    self.block_structure.truncate_blocks(self.fh, after=self.cur_block)
                 break
 
-    def iterdata(self, fh, offset=0, chunk_size=1):
-        cur_block, offset = self.find_offset(fh, offset)
+    def seek(self, pos):
+        self.cur_block, self.block_offset = self.find_offset(pos)
+
+    def iterdata(self, chunk_size=1):
+        cur_block, offset = self.find_offset(self.block_offset)
         ptr = cur_block.start + cur_block.get_header_size() + offset
-        byte_data = self.iterbytes(fh, cur_block, ptr)
+        byte_data = self.iterbytes(cur_block, ptr)
         for b in byte_chunker(byte_data, chunk_size=chunk_size):
             yield b
 
-    def iterbytes(self, fh, block, ptr):
-        fh.seek(ptr)
+    def iterbytes(self, block, ptr):
+        self.fh.seek(ptr)
         while True:
             start = block.start + block.get_header_size()
             if start <= ptr < start + block.next_empty:
-                yield fh.read(1)
+                yield self.fh.read(1)
                 ptr += 1
             else:
                 if block.next == -1:
                     break
 
-                block = Block.read_block(fh, block.next)
+                block = Block.read_block(self.fh, block.next)
                 ptr = block.start + block.get_header_size()
 
-    def find_offset(self, fh, offset):
+    def find_offset(self, offset):
         for cur_block in self.block_structure.blocks:
             if offset < cur_block.size:
                 return cur_block, offset
@@ -223,11 +220,11 @@ class MultiBlockStructure(object):
     def __init__(self, fh, block_size=1024, initialize=False):
        self.header_structure = BlockStructure(fh, block_size=block_size,
                initialize=initialize, fill=int_to_bytes(-1, 4))
-       self.header = BlockStructureOrderedDataIO(self.header_structure)
+       self.header = BlockStructureOrderedDataIO(fh, self.header_structure)
        self.super_blocks = self.read_structure(fh, self.header_structure)
 
     def read_structure(self, fh, header_structure):
-        it = self.header.iterdata(fh, chunk_size=4)
+        it = self.header.iterdata(chunk_size=4)
         it = ((a, b, bytes_to_int(c)) for a, b, c in it)
         super_blocks_pos = [x[2] for x in takewhile(lambda x: x[2] != -1, it)]
         return [BlockStructure(fh, x) for x in super_blocks_pos]
@@ -236,7 +233,7 @@ class MultiBlockStructure(object):
         pos = fh.seek(0, os.SEEK_END)
         block_structure = BlockStructure(fh, position=pos, initialize=True,
                 block_size=block_size, fill=fill)
-        self.header.append(fh, bytes_to_gen(int_to_bytes(pos)))
+        self.header.write(bytes_to_gen(int_to_bytes(pos)))
         fh.flush()
         return block_structure
 
