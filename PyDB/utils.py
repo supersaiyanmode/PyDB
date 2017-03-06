@@ -27,14 +27,17 @@ def bytes_to_ints(val):
     return [bytes_to_int(val[x:x+4]) for x in range(0, len(val), 4)]
 
 def byte_chunker(iterator, chunk_size=1):
-    try:
-        while True:
-            res = b''
-            for _ in range(chunk_size):
+    exhausted = False
+    while not exhausted:
+        res = b''
+        for _ in range(chunk_size):
+            try:
                 res += next(iterator)
+            except StopIteration:
+                exhausted = True
+                break
+        if res:
             yield res
-    except StopIteration:
-        pass
 
 def bytes_to_gen(barr):
     return (bytes([x]) for x in barr)
