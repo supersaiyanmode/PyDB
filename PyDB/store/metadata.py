@@ -53,7 +53,6 @@ class TableMetadata(object):
         column_names = [x[0] for x in columns]
         primary_key = ([x for x,y in columns if y.primary_key] + [None])[0]
         unique_keys = [x for x,y in columns if y.unique]
-        column_types = [get_qualified_name(x[1].__class__) for x in columns]
 
         return TableMetadata(class_name, column_names, 0, primary_key, unique_keys)
 
