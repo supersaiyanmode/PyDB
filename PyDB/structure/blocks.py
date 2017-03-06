@@ -42,34 +42,34 @@ class BlockStructureOrderedDataIO(object):
                     self.block_structure.truncate_blocks(self.fh, after=self.cur_block)
                 break
 
-    def read(self, size=-1):
+    def read(self, size=-1, pos=-1):
         if size == -1:
-            return b''.join(self.iterdata())
-        return b''.join(islice(self.iterdata(), 0, size))
+            return b''.join(self.iterdata(pos=pos))
+        return b''.join(islice(self.iterdata(pos), 0, size))
 
     def seek(self, pos):
         self.cur_block, self.block_offset = self.find_offset(pos)
+        self.fh.seek(self.cur_block.start + self.cur_block.get_header_size() +
+                self.block_offset)
 
-    def iterdata(self, chunk_size=1):
-        cur_block, offset = self.find_offset(self.block_offset)
-        ptr = cur_block.start + cur_block.get_header_size() + offset
-        byte_data = self.iterbytes(cur_block, ptr)
-        for b in byte_chunker(byte_data, chunk_size=chunk_size):
+    def iterdata(self, pos=-1, chunk_size=1):
+        def iterbytes():
+            while True:
+                if self.block_offset < self.cur_block.next_empty:
+                    result = self.fh.read(1)
+                    self.block_offset += 1
+                    yield result
+                else:
+                    if self.cur_block.next == -1:
+                        break
+
+                    self.cur_block = Block.read_block(self.fh, self.cur_block.next)
+                    self.block_offset = 0
+                    start = self.cur_block.start + self.cur_block.get_header_size()
+        if pos >= 0:
+            self.seek(pos)
+        for b in byte_chunker(iterbytes(), chunk_size=chunk_size):
             yield b
-
-    def iterbytes(self, block, ptr):
-        self.fh.seek(ptr)
-        while True:
-            start = block.start + block.get_header_size()
-            if start <= ptr < start + block.next_empty:
-                yield self.fh.read(1)
-                ptr += 1
-            else:
-                if block.next == -1:
-                    break
-
-                block = Block.read_block(self.fh, block.next)
-                ptr = block.start + block.get_header_size()
 
     def find_offset(self, offset):
         for cur_block in self.block_structure.blocks:
@@ -230,6 +230,7 @@ class MultiBlockStructure(object):
        self.super_blocks = self.read_structure(fh, self.header_structure)
 
     def read_structure(self, fh, header_structure):
+        self.header.seek(0)
         it = self.header.iterdata(chunk_size=4)
         it = ((a, b, bytes_to_int(c)) for a, b, c in it)
         super_blocks_pos = [x[2] for x in takewhile(lambda x: x[2] != -1, it)]

@@ -146,12 +146,11 @@ class TestDataIterator(FileBasedTest):
 
         io.write(string_to_bytes(msg))
         self.f.flush()
-        self.f.seek(0)
 
         self.reopen_file()
         bs2 = BlockStructure(self.f)
         io2 = BlockStructureOrderedDataIO(self.f, bs2)
-        got = b"".join(BlockStructureOrderedDataIO(self.f, bs2).iterdata(chunk_size=1))
+        got = b"".join(io2.iterdata(0, chunk_size=1))
         expected = msg.encode()
         assert expected == got
 
@@ -168,7 +167,7 @@ class TestDataIterator(FileBasedTest):
         self.reopen_file()
         bs2 = BlockStructure(self.f)
         io2 = BlockStructureOrderedDataIO(self.f, bs2)
-        got = b"".join(BlockStructureOrderedDataIO(self.f, bs2).iterdata(chunk_size=1))
+        got = b"".join(BlockStructureOrderedDataIO(self.f, bs2).iterdata(0, chunk_size=1))
         expected = msg.encode()
         assert expected == got
 
@@ -192,7 +191,7 @@ class TestDataIterator(FileBasedTest):
         self.reopen_file()
         bs2 = BlockStructure(self.f)
         io2 = BlockStructureOrderedDataIO(self.f, bs2)
-        got = b"".join(BlockStructureOrderedDataIO(self.f, bs2).iterdata(chunk_size=1))
+        got = b"".join(BlockStructureOrderedDataIO(self.f, bs2).iterdata(0, chunk_size=1))
         expected = "This is definitely a not-so-basic test.".encode()
         assert expected == got
 
@@ -213,14 +212,12 @@ class TestDataIterator(FileBasedTest):
 
         self.reopen_file()
         bs2 = BlockStructure(self.f)
-        io2 = BlockStructureOrderedDataIO(self.f, bs2)
-        got = BlockStructureOrderedDataIO(self.f, bs2).read()
-        expected = "This is definitely a not-so-basic test.".encode()
+        got = BlockStructureOrderedDataIO(self.f, bs2).read(pos=0)
         expected = (msg[:21] + msg2 + msg[21 + len(msg2):]).encode()
         assert expected == got
 
     def test_read(self):
-        msg = "Basic test."
+        msg = "A very very very very long string for no reason."
         bs = BlockStructure(self.f, block_size=16, initialize=True)
         io = BlockStructureOrderedDataIO(self.f, bs)
 
@@ -230,7 +227,8 @@ class TestDataIterator(FileBasedTest):
         self.reopen_file()
         bs2 = BlockStructure(self.f)
         io2 = BlockStructureOrderedDataIO(self.f, bs2)
-        got = BlockStructureOrderedDataIO(self.f, bs2).read(6)
-        expected = msg.encode()[:6]
+        io2.seek(0)
+        got = io2.read(3) + io2.read(6) + io2.read()
+        expected = msg.encode()
         assert expected == got
 
