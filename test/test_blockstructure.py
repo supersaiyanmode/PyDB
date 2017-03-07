@@ -216,6 +216,19 @@ class TestDataIterator(FileBasedTest):
         expected = (msg[:21] + msg2 + msg[21 + len(msg2):]).encode()
         assert expected == got
 
+    def test_empty_write(self):
+        bs = BlockStructure(self.f, block_size=16, initialize=True)
+        io = BlockStructureOrderedDataIO(self.f, bs)
+        io.write(b'')
+        io.write(b'test.')
+
+        self.reopen_file()
+
+        io = BlockStructureOrderedDataIO(self.f, BlockStructure(self.f))
+        assert b"tes" == io.read(3)
+        assert b't.' == io.read(10)
+
+
     def test_read(self):
         msg = "A very very very very long string for no reason."
         bs = BlockStructure(self.f, block_size=16, initialize=True)
