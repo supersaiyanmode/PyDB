@@ -17,13 +17,13 @@ class TempTable(TableStore):
     dummy_val = 2
 
 
-class TempTableMetadata(BlockStructureBasedTest):
+class TestTableMetadata(BlockStructureBasedTest):
     def test_encode_decode(self):
         m1 = TableMetadata(TempTable)
         m1.encode_metadata(self.io)
 
         self.reopen_file()
-        
+
         self.io.seek(0)
         m2 = TableMetadata(TempTable)
         m2.decode_metadata(self.io)
