@@ -4,7 +4,7 @@ import struct
 from itertools import islice
 
 from PyDB.datatypes import GenericType
-from PyDB.utils import custom_import, get_qualified_name
+from PyDB.utils import get_qualified_name
 from PyDB.utils import int_to_bytes, bytes_to_int, bytes_to_ints
 from PyDB.utils import string_to_bytes, bytes_to_string
 from PyDB.safe_reader import SafeReader
@@ -20,72 +20,55 @@ class TableMetadata(object):
     COLUMN_BYTE_LEN = 128
     CLASS_BYTE_LEN = 512
 
-    def __init__(self, class_name, column_names, row_count,
-            primary_key, unique_keys):
-        self.class_name = class_name
-        self.cls = custom_import(class_name)
-        self.column_names = column_names
-        self.primary_key = primary_key
-        self.unique_keys = unique_keys
-        self.row_count = row_count
+    def __init__(self, cls):
+        self.class_name = get_qualified_name(cls)
+        self.columns = cls._get_columns()
+        self.column_names = [x[0] for x in self.columns]
+        self.primary_key = ([x for x,y in self.columns if y.primary_key] + [None])[0]
+        self.unique_keys = [x for x,y in self.columns if y.unique]
+        self.row_count = 0
         self.check_valid()
 
     def check_valid(self):
-        if self.primary_key is None or self.primary_key not in self.column_names:
+        if self.primary_key is not None and self.primary_key not in self.column_names:
             raise PyDBMetadataError("Primary Key can not be located in metadata.")
 
         if any(x not in self.column_names for x in self.unique_keys):
             raise PyDBMetadataError("One or more unique keys can not be located" +
                                 " in the metadata.")
 
-    @classmethod
-    def from_class(cls, clsObj):
-        def get_columns():
-                cols = []
-                for x in dir(clsObj):
-                    typ = getattr(clsObj, x)
-                    if isinstance(typ, GenericType):
-                        cols.append((x, typ))
-                return cols
-
-        class_name = get_qualified_name(clsObj)
-        columns = get_columns()
-        column_names = [x[0] for x in columns]
-        primary_key = ([x for x,y in columns if y.primary_key] + [None])[0]
-        unique_keys = [x for x,y in columns if y.unique]
-
-        return TableMetadata(class_name, column_names, 0, primary_key, unique_keys)
-
-    @classmethod
-    def decode(cls, io):
+    def decode_metadata(self, io):
         reader = SafeReader(io)
 
-        magic = reader.next_int(cls.INT_BYTE_LEN)
+        magic = reader.next_int(self.INT_BYTE_LEN)
 
-        if magic != cls.MAGIC_VALUE:
+        if magic != self.MAGIC_VALUE:
             raise PyDBInternalError("Invalid metatadata.")
 
-        class_name = reader.next_string(cls.CLASS_BYTE_LEN)
-        size_cols = reader.next_int(cls.INT_BYTE_LEN)
+        class_name = reader.next_string(self.CLASS_BYTE_LEN)
+        size_cols = reader.next_int(self.INT_BYTE_LEN)
 
         col_names = []
         for _ in range(size_cols):
-            col_name = reader.next_string(cls.COLUMN_BYTE_LEN)
+            col_name = reader.next_string(self.COLUMN_BYTE_LEN)
             col_names.append(col_name)
 
-        primary_key = reader.next_string(cls.COLUMN_BYTE_LEN)
+        primary_key = reader.next_string(self.COLUMN_BYTE_LEN) or None
 
-        unique_keys_count = reader.next_int(cls.INT_BYTE_LEN)
+        unique_keys_count = reader.next_int(self.INT_BYTE_LEN)
         unique_keys = []
         for _ in range(unique_keys_count):
-            unique_key = reader.next_string(cls.COLUMN_BYTE_LEN)
+            unique_key = reader.next_string(self.COLUMN_BYTE_LEN)
             unique_keys.append(unique_key)
 
-        row_count = reader.next_int(cls.INT_BYTE_LEN)
+        row_count = reader.next_int(self.INT_BYTE_LEN)
 
-        return cls(class_name, col_names, row_count, primary_key, unique_keys)
+        self.check_compatibility(class_name, col_names, row_count, primary_key, unique_keys)
 
-    def encode(self, io, pos=0):
+        #Updating attributes that might have changed.
+        self.row_count = row_count
+
+    def encode_metadata(self, io, pos=0):
         io.seek(pos)
         io.write(self.MAGIC_BYTES)
 
@@ -109,3 +92,25 @@ class TableMetadata(object):
 
         io.write(int_to_bytes(self.row_count))
 
+    def check_compatibility(self, class_name, col_names, row_count, primary_key, unique_keys):
+        if class_name != self.class_name:
+            raise PyDBMetadataError("Class name differs.")
+        if col_names != self.column_names:
+            raise PyDBMetadataError("Column names differ.")
+        if primary_key != self.primary_key:
+            raise PyDBMetadataError("Primary key differs.")
+        if unique_keys != self.unique_keys:
+            raise PyDBMetadataError("Unique keys differ.")
+
+class TableStore(object):
+    def __init__(self):
+        self._metadata = TableMetadata(self.__class__)
+
+    @classmethod
+    def _get_columns(cls):
+        cols = []
+        for x in dir(cls):
+            typ = getattr(cls, x)
+            if isinstance(typ, GenericType):
+                cols.append((x, typ))
+        return cols
