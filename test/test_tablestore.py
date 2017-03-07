@@ -28,7 +28,7 @@ class TestTableMetadata(BlockStructureBasedTest):
         m2 = TableMetadata(TempTable)
         m2.decode_metadata(self.io)
 
-        assert m2.class_name == m1.class_name == 'test_metadata.TempTable'
+        assert m2.class_name == m1.class_name == 'test_tablestore.TempTable'
         assert m2.column_names == m1.column_names == [
             'first_name', 'last_name', 'record_no', 'ssn'
         ]
