@@ -233,12 +233,31 @@ class TestDataIterator(FileBasedTest):
         assert b't.' == io.read(10)
 
 
-    def test_read(self):
+    def test_multiple_read(self):
         msg = "A very very very very long string for no reason."
         bs = BlockStructure(self.f, block_size=16, initialize=True)
         io = BlockStructureOrderedDataIO(self.f, bs)
 
         io.write(string_to_bytes(msg))
+        self.f.flush()
+
+        self.reopen_file()
+        bs2 = BlockStructure(self.f)
+        io2 = BlockStructureOrderedDataIO(self.f, bs2)
+        io2.seek(0)
+        got = io2.read(3) + io2.read(6) + io2.read()
+        expected = msg.encode()
+        assert expected == got
+
+    def test_multiple_write(self):
+        msg = "A very very very very long string for no reason."
+        bs = BlockStructure(self.f, block_size=16, initialize=True)
+        io = BlockStructureOrderedDataIO(self.f, bs, blocksize=16)
+
+        io.write(string_to_bytes(msg[:5]))
+        io.write(string_to_bytes(msg[5:12]))
+        io.write(string_to_bytes(msg[12:14]))
+        io.write(string_to_bytes(msg[14:134]))
         self.f.flush()
 
         self.reopen_file()
