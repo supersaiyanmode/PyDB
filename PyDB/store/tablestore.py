@@ -162,22 +162,6 @@ class TableStore(object):
         self._values = res
 
     @classmethod
-    def extract_column_values(cls, metadata, params):
-        expected_attrs = set(metadata.column_names)
-        got_attrs = set(params)
-
-        extra_attrs = got_attrs - expected_attrs
-        if extra_attrs:
-            raise PyDBValueError("Unexpected attributes: {}.".format(extra_attrs))
-
-        res = {}
-        for attr_name, attr_type in metadata.columns:
-            val = params.get(attr_name)
-            res[attr_name] = val
-
-        return res
-
-    @classmethod
     def _get_columns(cls):
         cols = []
         for x in dir(cls):
