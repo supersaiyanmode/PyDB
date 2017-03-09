@@ -114,6 +114,11 @@ class TableStore(object):
             return self_values[key]
         return super().__getattribute__(key)
 
+    def __eq__(self, other):
+        if self.__class__ != other.__class__:
+            return False
+        return self._values == other._values
+
     def __repr__(self):
         params = ", ".join("{}={}".format(x, repr(y)) for x, y in self._values.items())
         return "{}({})".format(self.__class__.__name__, params)
@@ -139,14 +144,15 @@ class TableStore(object):
     def _encode_obj(self, io, pos=-1):
         self._check_values(self._values)
 
-        if pos >= -1:
+        if pos >= 0:
             io.seek(pos)
 
         for col_name, col_type in self._metadata.columns:
             io.write(col_type.encode(self._values[col_name]))
 
     def _decode_obj(self, io, pos=-1):
-        io.seek(pos)
+        if pos >= 0:
+            io.seek(pos)
 
         res = {}
         for col_name, col_type in self._metadata.columns:

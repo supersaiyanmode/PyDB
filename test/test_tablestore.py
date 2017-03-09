@@ -73,3 +73,20 @@ class TestTableMetadata(BlockStructureBasedTest):
             t._encode_obj(self.io)
         assert ex.value.message == "Expected value of type int, but got an instance of type: str"
 
+    def test_read_write_objects(self):
+        objs = [
+            TempTable(record_no=1, first_name="f1", last_name="l1", ssn=1234, age=10),
+            TempTable(record_no=2, first_name="f2", last_name="l2", ssn=2345, age=12),
+            TempTable(record_no=3, first_name="f3", last_name="l3", ssn=3456, age=15),
+        ]
+
+        for obj in objs:
+            obj._encode_obj(self.io)
+
+        self.reopen_file()
+
+        got = [TempTable() for _ in range(3)]
+        for t in got:
+            t._decode_obj(self.io)
+        assert objs == got
+
