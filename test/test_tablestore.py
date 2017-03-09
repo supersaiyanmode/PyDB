@@ -54,21 +54,22 @@ class TestTableMetadata(BlockStructureBasedTest):
 
     def test_extract_unexpected_attributes(self):
         with pytest.raises(PyDBValueError) as ex:
-            TempTable(blah="blah")
+            TempTable(blah="blah")._encode_obj(self.io)
         assert ex.value.message == "Unexpected attributes: {'blah'}."
 
     def test_no_primary_key(self):
         with pytest.raises(PyDBValueError) as ex:
-            TempTable(first_name="x", last_name="y", ssn=124, age=10)
+            TempTable(first_name="x", last_name="y", ssn=124, age=10)._encode_obj(self.io)
         assert ex.value.message == "Value is NULL for a required attribute."
 
     def test_no_required_attr(self):
         with pytest.raises(PyDBValueError) as ex:
-            TempTable(record_no=1, first_name="x", last_name="y")
+            TempTable(record_no=1, first_name="x", last_name="y")._encode_obj(self.io)
         assert ex.value.message == "Value is NULL for a required attribute."
 
     def test_bad_type(self):
         with pytest.raises(PyDBTypeError) as ex:
-            TempTable(record_no=1, first_name="x", last_name="y", ssn="bad string", age=15)
+            t = TempTable(record_no=1, first_name="x", last_name="y", ssn="bad string", age=15)
+            t._encode_obj(self.io)
         assert ex.value.message == "Expected value of type int, but got an instance of type: str"
 
