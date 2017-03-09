@@ -4,7 +4,7 @@ import struct
 import pytest
 
 from PyDB.datatypes import GenericType, IntegerType, StringType
-from PyDB.exceptions import PyDBMetadataError
+from PyDB.exceptions import PyDBMetadataError, PyDBValueError
 from PyDB.store.tablestore import TableMetadata, TableStore
 from base import BlockStructureBasedTest
 
@@ -35,4 +35,25 @@ class TestTableMetadata(BlockStructureBasedTest):
         assert m2.primary_key == m1.primary_key == 'record_no'
         assert m2.unique_keys == m1.unique_keys == ['ssn']
         assert m2.row_count == m1.row_count == 0
+
+    def test_basic(self):
+        obj = TempTable(record_no=4, first_name="x", last_name="y", ssn=124)
+
+        assert obj.record_no == 4
+        assert obj.first_name == "x"
+        assert obj.last_name == "y"
+        assert obj.ssn == 124
+
+    def test_repr(self):
+        obj = TempTable(record_no=4, first_name="x", last_name="y", ssn=124)
+        expected = 'TempTable(first_name="x", last_name="y", record_no=4, ssn=124)'
+        assert len(repr(obj)) == len(expected) #Quick and dirty, w/o relying on dict-order
+
+    def test_extract_unexpected_attributes(self):
+        with pytest.raises(PyDBValueError):
+            TempTable(blah="blah")
+
+    def test_no_primary_key(self):
+        with pytest.raises(PyDBValueError):
+            TempTable(first_name="x", last_name="y", ssn=124)
 

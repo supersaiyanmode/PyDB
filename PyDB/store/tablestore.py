@@ -9,7 +9,7 @@ from PyDB.utils import int_to_bytes, bytes_to_int, bytes_to_ints
 from PyDB.utils import string_to_bytes, bytes_to_string
 from PyDB.safe_reader import SafeReader
 from PyDB.exceptions import PyDBMetadataError, PyDBConsistencyError
-from PyDB.exceptions import PyDBInternalError
+from PyDB.exceptions import PyDBInternalError, PyDBValueError
 
 
 class TableMetadata(object):
@@ -103,8 +103,37 @@ class TableMetadata(object):
             raise PyDBMetadataError("Unique keys differ.")
 
 class TableStore(object):
-    def __init__(self):
+    def __init__(self, **kwargs):
+        self._values = {}
         self._metadata = TableMetadata(self.__class__)
+        self._values = TableStore.extract_values(self._metadata, kwargs)
+
+    def __getattribute__(self, key):
+        self_values = object.__getattribute__(self, '_values')
+        if key in self_values:
+            return self_values[key]
+        return super().__getattribute__(key)
+
+    def __repr__(self):
+        params = ", ".join("{}={}".format(x, repr(y)) for x, y in self._values.items())
+        return "{}({})".format(self.__class__.__name__, params)
+
+    @classmethod
+    def extract_values(cls, metadata, params):
+        expected_attrs = set(metadata.column_names)
+        got_attrs = set(params)
+
+        extra_attrs = got_attrs - expected_attrs
+        if extra_attrs:
+            raise PyDBValueError("Unexpected attributes: {}.".format(extra_attrs))
+
+        res = {}
+        for attr_name, attr_type in metadata.columns:
+            val = params.get(attr_name)
+            attr_type.check_value(val)
+            res[attr_name] = val
+
+        return res
 
     @classmethod
     def _get_columns(cls):
@@ -114,3 +143,4 @@ class TableStore(object):
             if isinstance(typ, GenericType):
                 cols.append((x, typ))
         return cols
+
