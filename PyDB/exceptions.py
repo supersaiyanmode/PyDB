@@ -3,11 +3,11 @@ class PyDBError(Exception):
         self.message = message
 
     def __str__(self):
-        return self.__class__.__name__ + str(self.message)
+        return self.__class__.__name__ + ": " + str(self.message)
 
 class PyDBTypeError(PyDBError):
     def __init__(self, expected, val):
-        msg = "Expected value of type {}, but got an instance of type:{}" \
+        msg = "Expected value of type {}, but got an instance of type: {}" \
                 .format(expected.__name__, val.__class__.__name__)
         super().__init__(msg)
 
