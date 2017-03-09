@@ -50,10 +50,12 @@ class TestTableMetadata(BlockStructureBasedTest):
         assert len(repr(obj)) == len(expected) #Quick and dirty, w/o relying on dict-order
 
     def test_extract_unexpected_attributes(self):
-        with pytest.raises(PyDBValueError):
+        with pytest.raises(PyDBValueError) as ex:
             TempTable(blah="blah")
+        assert ex.value.message == "Unexpected attributes: {'blah'}."
 
     def test_no_primary_key(self):
-        with pytest.raises(PyDBValueError):
+        with pytest.raises(PyDBValueError) as ex:
             TempTable(first_name="x", last_name="y", ssn=124)
+        assert ex.value.message == "Value is NULL for a required attribute."
 

@@ -26,8 +26,10 @@ class TestBlock(FileBasedTest):
     def test_non_aligned_fill(self):
         b = Block(0, 16, -1, -1, 0)
         b.write_header(self.f)
-        with pytest.raises(PyDBInternalError):
+        with pytest.raises(PyDBInternalError) as e:
             b.fill_data(self.f, b'\xff'*3)
+        expected = "Internal Error. Possibly corrupt database. Can't fill data. Not aligned."
+        assert e.value.message == expected
 
     def test_raw_write(self):
         b = Block(0, 16, -1, -1, 0)
@@ -95,8 +97,10 @@ class TestBlockStructure(FileBasedTest):
         bs.add_block(self.f, 16, fill=b'\x00\x00\x00\x10')
         Block.MAGIC_BYTES = orig
         self.reopen_file()
-        with pytest.raises(PyDBInternalError):
+        with pytest.raises(PyDBInternalError) as ex:
             BlockStructure(self.f)
+        expected = "Internal Error. Possibly corrupt database. Not a block at start position: 0."
+        assert ex.value.message == expected
 
 
 class TestMultiBlockStructure(FileBasedTest):

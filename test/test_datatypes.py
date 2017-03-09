@@ -21,12 +21,18 @@ class TestGenericType(object):
     def test_check_value(self):
         it = IntegerType(required=True)
         it.check_value(5)
-        with pytest.raises(PyDBValueError):
+        with pytest.raises(PyDBValueError) as ex:
             it.check_value(None)
-        with pytest.raises(PyDBTypeError):
+        assert ex.value.message == "Value is NULL for a required attribute."
+
+        with pytest.raises(PyDBTypeError) as ex:
             it.check_value("")
-        with pytest.raises(PyDBTypeError):
+        assert ex.value.message == "Expected value of type int, but got an instance of type: str"
+
+        with pytest.raises(PyDBTypeError) as ex:
             it.check_value(TestGenericType())
+        expected = "Expected value of type int, but got an instance of type: TestGenericType"
+        assert ex.value.message == expected
 
     def test_get_type(self):
         assert IntegerType().get_type() == int
@@ -35,11 +41,13 @@ class TestGenericType(object):
         it = IntegerType(default=0)
         assert it.has_default() == True
 
-        with pytest.raises(PyDBTypeError):
+        with pytest.raises(PyDBTypeError) as ex:
             IntegerType(default="")
+        assert ex.value.message == "Expected value of type int, but got an instance of type: str"
 
-        with pytest.raises(PyDBValueError):
+        with pytest.raises(PyDBValueError) as ex:
             IntegerType(required=True, default=None)
+        assert ex.value.message == "Value is NULL for a required attribute."
 
     def test_preprocess_value(self):
         it = IntegerType(default=5, required=True)
@@ -53,8 +61,9 @@ class TestGenericType(object):
 
     def test_check_required(self):
         it = IntegerType(required=True)
-        with pytest.raises(PyDBValueError):
+        with pytest.raises(PyDBValueError) as ex:
             it.check_required(None)
+        assert ex.value.message == "Value is NULL for a required attribute."
 
         IntegerType().check_required(None)
 
@@ -99,5 +108,7 @@ class TestStringType(object):
         assert StringType(16).decode(barr) is None
 
     def test_constraint(self):
-        with pytest.raises(PyDBTypeConstraintError):
+        with pytest.raises(PyDBTypeConstraintError) as ex:
             StringType(16).check_value("This is a rather long string.")
+        assert ex.value.message == "Illegal value. Can't store value: String size exceeds 16"
+
