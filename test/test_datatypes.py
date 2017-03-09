@@ -19,9 +19,9 @@ class TestTypeHeader(object):
 
 class TestGenericType(object):
     def test_check_value(self):
-        it = IntegerType()
+        it = IntegerType(required=True)
         it.check_value(5)
-        with pytest.raises(PyDBTypeError):
+        with pytest.raises(PyDBValueError):
             it.check_value(None)
         with pytest.raises(PyDBTypeError):
             it.check_value("")
@@ -38,8 +38,8 @@ class TestGenericType(object):
         with pytest.raises(PyDBTypeError):
             IntegerType(default="")
 
-        with pytest.raises(PyDBTypeError):
-            IntegerType(default=None)
+        with pytest.raises(PyDBValueError):
+            IntegerType(required=True, default=None)
 
     def test_preprocess_value(self):
         it = IntegerType(default=5, required=True)
