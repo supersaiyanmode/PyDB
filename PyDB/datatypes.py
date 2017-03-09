@@ -55,15 +55,16 @@ class GenericType(object):
 
     def check_value(self, val):
         self.check_required(val)
-        self.check_type(val)
-        self.check_constraints(val)
+        if val is not None:
+            self.check_type(val)
+            self.check_constraints(val)
 
     def check_type(self, val):
-        if val is not None and not isinstance(val, self.get_type()):
+        if not isinstance(val, self.get_type()):
             raise PyDBTypeError(self.get_type(), val)
 
     def check_required(self, val):
-        if val is None and (self.required):
+        if val is None and self.required:
             raise PyDBValueError("Value is NULL for a required attribute.")
 
     def check_constraints(self, val):

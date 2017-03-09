@@ -34,6 +34,8 @@ class TestGenericType(object):
         expected = "Expected value of type int, but got an instance of type: TestGenericType"
         assert ex.value.message == expected
 
+        IntegerType().check_value(None)
+
     def test_get_type(self):
         assert IntegerType().get_type() == int
 

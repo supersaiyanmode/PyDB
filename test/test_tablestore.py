@@ -76,8 +76,8 @@ class TestTableMetadata(BlockStructureBasedTest):
     def test_read_write_objects(self):
         objs = [
             TempTable(record_no=1, first_name="f1", last_name="l1", ssn=1234, age=10),
-            TempTable(record_no=2, first_name="f2", last_name="l2", ssn=2345, age=12),
-            TempTable(record_no=3, first_name="f3", last_name="l3", ssn=3456, age=15),
+            TempTable(record_no=2, first_name=None, last_name="l2", ssn=2345, age=12),
+            TempTable(record_no=3, first_name="f3", last_name=None, ssn=None, age=15),
         ]
 
         for obj in objs:
