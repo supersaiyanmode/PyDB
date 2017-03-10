@@ -12,7 +12,7 @@ from PyDB.exceptions import PyDBMetadataError, PyDBConsistencyError
 from PyDB.exceptions import PyDBInternalError, PyDBValueError
 
 
-class TableMetadata(object):
+class MetadataStore(object):
     MAGIC_VALUE = 2123427274
     MAGIC_BYTES = int_to_bytes(MAGIC_VALUE, 4)
 
@@ -102,10 +102,10 @@ class TableMetadata(object):
         if unique_keys != self.unique_keys:
             raise PyDBMetadataError("Unique keys differ.")
 
-class TableStore(object):
+class RecordStore(object):
     def __init__(self, **kwargs):
         self._values = {}
-        self._metadata = TableMetadata(self.__class__)
+        self._metadata = MetadataStore(self.__class__)
         self._values = self._extract_column_values(**kwargs)
 
     def __getattribute__(self, key):
