@@ -268,3 +268,29 @@ class TestDataIterator(FileBasedTest):
         expected = msg.encode()
         assert expected == got
 
+    def test_size(self):
+        msg = "A short string"
+        bs = BlockStructure(self.f, block_size=16, initialize=True)
+        io = BlockStructureOrderedDataIO(self.f, bs, blocksize=16)
+
+        io.write(string_to_bytes(msg))
+
+        assert io.size() == len(msg)
+
+        msg2 = "Something random, really."
+        io.seek(6)
+        io.write(string_to_bytes(msg2))
+
+        assert io.size() == len(msg[:6] + msg2)
+
+        io.seek(10)
+        io.write(string_to_bytes("small string"))
+
+        assert io.size() == len(msg[:6] + msg2)
+
+
+        msg3 = "tail."
+        io.seek(io.size())
+        io.write(string_to_bytes(msg3))
+
+        assert io.size() == len(msg[:6] + msg2 + msg3)

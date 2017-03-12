@@ -78,6 +78,9 @@ class BlockStructureOrderedDataIO(object):
             offset -= cur_block.size
         raise PyDBIterationError("Invalid offset.")
 
+    def size(self):
+        return sum(x.next_empty for x in self.block_structure.blocks)
+
 class Block(object):
     """
     | MAGIC | SIZE | NEXT | PREV | NEXT_EMPTY | DATA... |
