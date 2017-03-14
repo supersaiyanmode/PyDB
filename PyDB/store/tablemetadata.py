@@ -30,12 +30,7 @@ class TableMetadata(object):
         self.check_valid()
 
     def check_valid(self):
-        if self.primary_key is not None and self.primary_key not in self.column_names:
-            raise PyDBMetadataError("Primary Key can not be located in metadata.")
-
-        if any(x not in self.column_names for x in self.unique_keys):
-            raise PyDBMetadataError("One or more unique keys can not be located" +
-                                " in the metadata.")
+        pass
 
     def decode_metadata(self, io):
         reader = SafeReader(io)
