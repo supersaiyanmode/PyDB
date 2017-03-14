@@ -20,6 +20,12 @@ class PyDBTypeConstraintError(PyDBError):
         msg = "Illegal value. Can't store value: " + msg
         super().__init__(msg)
 
+class PyDBUniqueKeyViolation(PyDBError):
+    def __init__(self, msg):
+        msg = "Unique key violation: " + str(msg)
+        super().__init__(msg)
+
+
 class PyDBInternalError(PyDBError):
     def __init__(self, msg):
         msg = "Internal Error. Possibly corrupt database. " + msg
