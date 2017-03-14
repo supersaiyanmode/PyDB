@@ -6,7 +6,8 @@ from PyDB.structure.blocks import BlockStructure, Block, MultiBlockStructure
 from PyDB.structure.blocks import BlockStructureOrderedDataIO
 from PyDB.utils import bytes_to_ints, bytes_to_int, int_to_bytes, string_to_bytes
 from PyDB.exceptions import PyDBIterationError, PyDBInternalError
-from base import FileBasedTest
+
+from ..base import FileBasedTest
 
 
 class TestBlock(FileBasedTest):

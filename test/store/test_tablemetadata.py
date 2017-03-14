@@ -3,13 +3,15 @@ import struct
 
 import pytest
 
-from PyDB.datatypes import GenericType, IntegerType, StringType
+from PyDB.datatypes import IntegerType, StringType
 from PyDB.exceptions import PyDBMetadataError, PyDBValueError
 from PyDB.exceptions import PyDBTypeError
-from PyDB.store.tablestore import MetadataStore, RecordStore
-from base import BlockStructureBasedTest
+from PyDB.store.tablemetadata import TableMetadata
+from PyDB.store.record import Record
 
-class TempTable(RecordStore):
+from ..base import BlockStructureBasedTest
+
+class TempTable(Record):
     record_no = IntegerType(primary_key=True)
     first_name = StringType(50)
     last_name = StringType(50)
@@ -19,18 +21,18 @@ class TempTable(RecordStore):
     dummy_val = 2
 
 
-class TestMetadataStore(BlockStructureBasedTest):
+class TestTableMetadata(BlockStructureBasedTest):
     def test_encode_decode(self):
-        m1 = MetadataStore(TempTable)
+        m1 = TableMetadata(TempTable)
         m1.encode_metadata(self.io)
 
         self.reopen_file()
 
         self.io.seek(0)
-        m2 = MetadataStore(TempTable)
+        m2 = TableMetadata(TempTable)
         m2.decode_metadata(self.io)
 
-        assert m2.class_name == m1.class_name == 'test_tablestore.TempTable'
+        assert m2.class_name == m1.class_name == 'test.store.test_tablemetadata.TempTable'
         assert m2.column_names == m1.column_names == [
             'age', 'first_name', 'last_name', 'record_no', 'ssn'
         ]

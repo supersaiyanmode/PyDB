@@ -1,7 +1,25 @@
 from PyDB.exceptions import PyDBInternalError
-from PyDB.utils import int_to_bytes, bytes_to_int, bytes_to_ints
-from PyDB.utils import string_to_bytes, bytes_to_string
 
+def int_to_bytes(val, size=4):
+    return val.to_bytes(size, byteorder='big', signed=True)
+
+def bytes_to_int(val):
+    return int.from_bytes(val, byteorder='big', signed=True)
+
+def string_to_bytes(val, encoding='ascii'):
+    return str.encode(val, encoding)
+
+def bytes_to_string(barr, encoding='ascii'):
+    return bytes.decode(barr, encoding)
+
+def bytes_to_ints(val):
+    return [bytes_to_int(val[x:x+4]) for x in range(0, len(val), 4)]
+
+def bytes_to_gen(barr):
+    return (bytes([x]) for x in barr)
+
+def gen_to_bytes(barr):
+    return b''.join(barr)
 
 class SafeReader(object):
     def __init__(self, io):
