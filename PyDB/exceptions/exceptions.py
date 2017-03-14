@@ -25,6 +25,10 @@ class PyDBUniqueKeyViolation(PyDBError):
         msg = "Unique key violation: " + str(msg)
         super().__init__(msg)
 
+class PyDBKeyNotFoundError(PyDBError):
+    def __init__(self, msg):
+        msg = "Not found: " + str(msg)
+        super().__init__(msg)
 
 class PyDBInternalError(PyDBError):
     def __init__(self, msg):
