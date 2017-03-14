@@ -5,6 +5,7 @@ import pytest
 
 from PyDB.datatypes import IntegerType, StringType
 from PyDB.exceptions import PyDBMetadataError, PyDBValueError
+from PyDB.exceptions import PyDBInternalError
 from PyDB.store import TableMetadata, Record
 
 from ..base import BlockStructureBasedTest
@@ -51,3 +52,11 @@ class TestTableMetadata(BlockStructureBasedTest):
             m.check_compatibility(cls, cols, None, None, None)
         assert ex.value.message == prefix + "Column names differ."
 
+    def test_bad_magic(self):
+        m = TableMetadata(TempTable)
+        self.io.write("some random message".encode())
+        self.io.seek(0)
+        with pytest.raises(PyDBInternalError) as ex:
+            m.decode_metadata(self.io)
+        expected = "Internal Error. Possibly corrupt database. Invalid metatadata."
+        assert ex.value.message == expected
