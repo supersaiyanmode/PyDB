@@ -52,6 +52,27 @@ class TestTableMetadata(BlockStructureBasedTest):
             m.check_compatibility(cls, cols, None, None, None)
         assert ex.value.message == prefix + "Column names differ."
 
+        with pytest.raises(PyDBMetadataError) as ex:
+            cls = "test.store.test_tablemetadata.TempTable"
+            cols = ["age", "first_name", "last_name", "record_no", "ssn"]
+            pk = "record_no_bad"
+            m.check_compatibility(cls, cols, 0, pk, None)
+        assert ex.value.message == prefix + "Primary key differs."
+
+        with pytest.raises(PyDBMetadataError) as ex:
+            cls = "test.store.test_tablemetadata.TempTable"
+            cols = ["age", "first_name", "last_name", "record_no", "ssn"]
+            pk = "record_no"
+            unique = ["ssn_bad"]
+            m.check_compatibility(cls, cols, 0, pk, unique)
+        assert ex.value.message == prefix + "Unique keys differ."
+
+        cls = "test.store.test_tablemetadata.TempTable"
+        cols = ["age", "first_name", "last_name", "record_no", "ssn"]
+        pk = "record_no"
+        unique = ["ssn"]
+        m.check_compatibility(cls, cols, 0, pk, unique)
+
     def test_bad_magic(self):
         m = TableMetadata(TempTable)
         self.io.write("some random message".encode())
